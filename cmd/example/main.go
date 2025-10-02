@@ -10,14 +10,14 @@ import (
 )
 
 func main() {
-	// Пример использования библиотеки
-	slog.Info("Демонстрация работы библиотеки лицензирования")
+	// Example of using the library
+	slog.Info("Demonstration of the licensing library")
 
-	// Генерация хэша машины
+	// Generate machine hash
 	hash := hosthash.GenHash()
-	fmt.Printf("Хэш машины: %s\n", hash)
+	fmt.Printf("Machine hash: %s\n", hash)
 
-	// Пример ключей (в реальном проекте должны быть настоящие ключи)
+	// Example keys (in a real project should be actual keys)
 	hashKey := "6368616e676520746869732070617373776f726420746f206120736563726574" // 32-байтный ключ AES
 	tokenPrivateKey := `-----BEGIN PRIVATE KEY-----
 MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCu9VdIloNfZ3R8
@@ -57,27 +57,27 @@ EMB6y3I7Qv4LqWKoMvHh82clhfSjj+Y9au5XtAMOtaitEto+yzhpNImBHxL5Fvh9
 3wIDAQAB
 -----END PUBLIC KEY-----`
 
-	// Определение scope для конкретного приложения
+	// Define scopes for the specific application
 	allScopes := []license.Scope{
-		{ID: "read", Name: "Чтение", Description: "Доступ на чтение данных"},
-		{ID: "write", Name: "Запись", Description: "Доступ на запись данных"},
-		{ID: "admin", Name: "Администрирование", Description: "Полный доступ к системе"},
+		{ID: "read", Name: "Read", Description: "Read data access"},
+		{ID: "write", Name: "Write", Description: "Write data access"},
+		{ID: "admin", Name: "Administration", Description: "Full system access"},
 	}
 
-	// Создание генератора (для сервера лицензирования)
+	// Create generator (for license server)
 	generator := license.NewGenerator([]byte(tokenPrivateKey), allScopes)
 
-	// Создание валидатора (для клиентских приложений)
+	// Create validator (for client applications)
 	validator := license.NewValidator([]byte(tokenPublicKey), allScopes)
 
-	// Пример создания лицензии
-	expTime := time.Now().AddDate(1, 0, 0) // Лицензия на 1 год
+	// Example of creating a license
+	expTime := time.Now().AddDate(1, 0, 0) // License for 1 year
 
-	// Шифрование хэша машины
+	// Encrypt machine hash
 	encryptedHash := license.EncryptHash(hash, hashKey)
-	fmt.Printf("Зашифрованный хэш: %s\n", encryptedHash)
+	fmt.Printf("Encrypted hash: %s\n", encryptedHash)
 
-	// Создание лицензии с помощью генератора
+	// Create license using generator
 	licenseToken, err := generator.Create(license.CreateOptions{
 		HardwareHash: encryptedHash,
 		Name:         "Test License",
@@ -85,35 +85,35 @@ EMB6y3I7Qv4LqWKoMvHh82clhfSjj+Y9au5XtAMOtaitEto+yzhpNImBHxL5Fvh9
 		Scopes:       []string{"read", "write"},
 	})
 	if err != nil {
-		slog.Error("Ошибка создания лицензии", err)
+		slog.Error("Error creating license", err)
 		return
 	}
-	fmt.Printf("Токен лицензии: %s\n", licenseToken)
+	fmt.Printf("License token: %s\n", licenseToken)
 
-	// Проверка лицензии с помощью валидатора
+	// Validate license using validator
 	licenseInfo, err := validator.Validate(licenseToken, hashKey)
 	if err != nil {
-		slog.Error("Ошибка проверки лицензии", err)
+		slog.Error("Error validating license", err)
 		return
 	}
 
-	fmt.Printf("Лицензия активна: %v\n", licenseInfo.Active)
-	fmt.Printf("Токен активен: %v\n", licenseInfo.TokenActive)
-	fmt.Printf("Хэш валиден: %v\n", licenseInfo.HashActive)
+	fmt.Printf("License active: %v\n", licenseInfo.Active)
+	fmt.Printf("Token active: %v\n", licenseInfo.TokenActive)
+	fmt.Printf("Hash valid: %v\n", licenseInfo.HashActive)
 	if licenseInfo.ErrorMessage != "" {
-		fmt.Printf("Ошибка: %s\n", licenseInfo.ErrorMessage)
+		fmt.Printf("Error: %s\n", licenseInfo.ErrorMessage)
 	}
 
-	// Проверка scope
+	// Check scopes
 	if licenseInfo.CheckScope("read") {
-		fmt.Println("Доступ на чтение разрешен")
+		fmt.Println("Read access granted")
 	}
 	if licenseInfo.CheckScope("write") {
-		fmt.Println("Доступ на запись разрешен")
+		fmt.Println("Write access granted")
 	}
 	if licenseInfo.CheckScope("admin") {
-		fmt.Println("Административный доступ разрешен")
+		fmt.Println("Administrative access granted")
 	} else {
-		fmt.Println("Административный доступ запрещен")
+		fmt.Println("Administrative access denied")
 	}
 }

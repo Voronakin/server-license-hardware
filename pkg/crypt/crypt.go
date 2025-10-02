@@ -31,7 +31,7 @@ func Encrypte(content string, secret string) string {
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		slog.Error("Не удалось конвертировать ключ", err)
+		slog.Error("Failed to convert key", err)
 		os.Exit(1)
 	}
 
@@ -40,7 +40,7 @@ func Encrypte(content string, secret string) string {
 	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
 	iv := ciphertext[:aes.BlockSize]
 	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		slog.Error("Не удалось прочитать блок", err)
+		slog.Error("Failed to read block", err)
 		os.Exit(1)
 	}
 
@@ -60,7 +60,7 @@ func Decrypte(content string, secret string) string {
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		slog.Error("Не удалось конвертировать ключ", err)
+		slog.Error("Failed to convert key", err)
 		os.Exit(1)
 	}
 
@@ -96,7 +96,7 @@ func Decrypte(content string, secret string) string {
 
 	ciphertext, err = pkcs7pad.Unpad(ciphertext)
 	if err != nil {
-		slog.Error("Ошибка при удалении padding", err)
+		slog.Error("Error removing padding", err)
 		os.Exit(1)
 	}
 
