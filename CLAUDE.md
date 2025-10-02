@@ -30,23 +30,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Симметричное шифрование**: AES-CBC с PKCS7 padding для шифрования хэшей
 - **JWT токены**: создание и валидация лицензий с RSA подписью
 - **Scope система**: универсальная система разрешений с внешней инициализацией
+- **Разделение ответственности**: отдельные генератор и валидатор для безопасности
 
 ## API библиотеки
+
+### Основные структуры:
+
+```go
+// Генератор лицензий (для сервера)
+generator := license.NewGenerator(privateKey, scopes)
+
+// Валидатор лицензий (для клиентов)
+validator := license.NewValidator(publicKey, scopes)
+```
 
 ### Основные функции:
 
 ```go
-// Инициализация scope
-license.InitScopes([]license.Scope{...})
-
 // Генерация лицензии
-license.CreateLicense(encryptedHash, privateKey, name, expTime, scopes)
+licenseToken, err := generator.Create(license.CreateOptions{
+    HardwareHash: encryptedHash,
+    Name: "License Name",
+    ExpiresAt: time.Now().AddDate(1, 0, 0),
+    Scopes: []string{"read", "write"},
+})
 
-// Проверка лицензии
-license.GetLicenseInfo(token, publicKey, hashKey)
+// Валидация лицензии
+licenseInfo, err := validator.Validate(licenseToken, hashKey)
 
 // Проверка scope
-licenseInfo.CheckScope("read")
+if licenseInfo.CheckScope("read") {
+    // Разрешить доступ
+}
 ```
 
 ### Структура scope:

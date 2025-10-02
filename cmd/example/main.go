@@ -64,30 +64,42 @@ EMB6y3I7Qv4LqWKoMvHh82clhfSjj+Y9au5XtAMOtaitEto+yzhpNImBHxL5Fvh9
 		{ID: "admin", Name: "Администрирование", Description: "Полный доступ к системе"},
 	}
 
-	// Инициализация scope один раз в начале
-	license.InitScopes(allScopes)
+	// Создание генератора (для сервера лицензирования)
+	generator := license.NewGenerator([]byte(tokenPrivateKey), allScopes)
+
+	// Создание валидатора (для клиентских приложений)
+	validator := license.NewValidator([]byte(tokenPublicKey), allScopes)
 
 	// Пример создания лицензии
 	expTime := time.Now().AddDate(1, 0, 0) // Лицензия на 1 год
-
-	scopes := []license.Scope{
-		{ID: "read"},
-		{ID: "write"},
-	}
 
 	// Шифрование хэша машины
 	encryptedHash := license.EncryptHash(hash, hashKey)
 	fmt.Printf("Зашифрованный хэш: %s\n", encryptedHash)
 
-	// Создание лицензии
-	licenseToken := license.CreateLicense(encryptedHash, tokenPrivateKey, "Test License", expTime, scopes)
+	// Создание лицензии с помощью генератора
+	licenseToken, err := generator.Create(license.CreateOptions{
+		HardwareHash: encryptedHash,
+		Name:         "Test License",
+		ExpiresAt:    expTime,
+		Scopes:       []string{"read", "write"},
+	})
+	if err != nil {
+		slog.Error("Ошибка создания лицензии", err)
+		return
+	}
 	fmt.Printf("Токен лицензии: %s\n", licenseToken)
 
-	// Проверка лицензии
-	licenseInfo := license.GetLicenseInfo(licenseToken, tokenPublicKey, hashKey)
+	// Проверка лицензии с помощью валидатора
+	licenseInfo, err := validator.Validate(licenseToken, hashKey)
+	if err != nil {
+		slog.Error("Ошибка проверки лицензии", err)
+		return
+	}
+
 	fmt.Printf("Лицензия активна: %v\n", licenseInfo.Active)
 	fmt.Printf("Токен активен: %v\n", licenseInfo.TokenActive)
-	fmt.Printf("Хэш активен: %v\n", licenseInfo.HashActive)
+	fmt.Printf("Хэш валиден: %v\n", licenseInfo.HashActive)
 	if licenseInfo.ErrorMessage != "" {
 		fmt.Printf("Ошибка: %s\n", licenseInfo.ErrorMessage)
 	}
