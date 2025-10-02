@@ -1,7 +1,7 @@
 package license
 
 import (
-	"log/slog"
+	"fmt"
 	"os"
 
 	"server-license-hardware/pkg/crypt"
@@ -26,8 +26,7 @@ func GetLicense(filePath ...string) (string, error) {
 
 	content, err := os.ReadFile(path)
 	if err != nil {
-		slog.Error("Failed to read license file", err)
-		return "", err
+		return "", fmt.Errorf("failed to read license file: %w", err)
 	}
 
 	return string(content), nil

@@ -2,7 +2,7 @@ package hosthash
 
 import (
 	"encoding/json"
-	"log/slog"
+	"fmt"
 
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/host"
@@ -24,13 +24,11 @@ type Hash struct {
 func GenHash() (string, error) {
 	hd, err := getHardwareData()
 	if err != nil {
-		slog.Error("Failed to determine machine identification data for hash generation", err)
-		return "", err
+		return "", fmt.Errorf("failed to determine machine identification data for hash generation: %w", err)
 	}
 	hash, err := json.Marshal(hd)
 	if err != nil {
-		slog.Error("Failed to convert machine identification data to JSON for hash generation", err)
-		return "", err
+		return "", fmt.Errorf("failed to convert machine identification data to JSON for hash generation: %w", err)
 	}
 
 	return string(hash), nil

@@ -2,7 +2,6 @@ package license
 
 import (
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -30,8 +29,7 @@ func NewGenerator(privateKey []byte, scopes []Scope) *Generator {
 func (g *Generator) Create(opts CreateOptions) (string, error) {
 	myPrivateKey, err := jwt.ParseRSAPrivateKeyFromPEM(g.privateKey)
 	if err != nil {
-		slog.Error("Failed to parse private key", err)
-		return "", fmt.Errorf("invalid private key: %w", err)
+		return "", fmt.Errorf("failed to parse private key: %w", err)
 	}
 
 	// Проверяем что запрошенные scope существуют
@@ -50,8 +48,7 @@ func (g *Generator) Create(opts CreateOptions) (string, error) {
 
 	tokenString, err := token.SignedString(myPrivateKey)
 	if err != nil {
-		slog.Error("Failed to sign license token", err)
-		return "", fmt.Errorf("token signing error: %w", err)
+		return "", fmt.Errorf("failed to sign license token: %w", err)
 	}
 
 	return tokenString, nil
