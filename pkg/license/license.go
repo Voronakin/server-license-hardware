@@ -18,14 +18,19 @@ type LicenseInfo struct {
 	Scopes        []Scope
 }
 
-func GetLicense() string {
-	content, err := os.ReadFile("license.txt")
-	if err != nil {
-		slog.Error("Failed to read license file", err)
-		os.Exit(1)
+func GetLicense(filePath ...string) (string, error) {
+	path := "license.txt"
+	if len(filePath) > 0 && filePath[0] != "" {
+		path = filePath[0]
 	}
 
-	return string(content)
+	content, err := os.ReadFile(path)
+	if err != nil {
+		slog.Error("Failed to read license file", err)
+		return "", err
+	}
+
+	return string(content), nil
 }
 
 func GetHash(key string) string {
