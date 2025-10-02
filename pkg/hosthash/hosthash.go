@@ -25,12 +25,12 @@ type Hash struct {
 func GenHash() string {
 	hd, err := getHardwareData()
 	if err != nil {
-		slog.Error("Не удалось определить идентификационные данные машины для генерации хеша", err)
+		slog.Error("Failed to determine machine identification data for hash generation", err)
 		os.Exit(1)
 	}
 	hash, err := json.Marshal(hd)
 	if err != nil {
-		slog.Error("Не удалось преобразовать идентификационные данные машины в JSON для генерации хеша", err)
+		slog.Error("Failed to convert machine identification data to JSON for hash generation", err)
 		os.Exit(1)
 	}
 

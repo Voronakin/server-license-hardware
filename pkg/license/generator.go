@@ -30,13 +30,13 @@ func NewGenerator(privateKey []byte, scopes []Scope) *Generator {
 func (g *Generator) Create(opts CreateOptions) (string, error) {
 	myPrivateKey, err := jwt.ParseRSAPrivateKeyFromPEM(g.privateKey)
 	if err != nil {
-		slog.Error("Не удалось распарсить приватный ключ", err)
-		return "", fmt.Errorf("неверный приватный ключ: %w", err)
+		slog.Error("Failed to parse private key", err)
+		return "", fmt.Errorf("invalid private key: %w", err)
 	}
 
 	// Проверяем что запрошенные scope существуют
 	if !g.validateScopes(opts.Scopes) {
-		return "", fmt.Errorf("неизвестные scope: %v", opts.Scopes)
+		return "", fmt.Errorf("unknown scopes: %v", opts.Scopes)
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
@@ -50,8 +50,8 @@ func (g *Generator) Create(opts CreateOptions) (string, error) {
 
 	tokenString, err := token.SignedString(myPrivateKey)
 	if err != nil {
-		slog.Error("Не удалось подписать токен лицензии", err)
-		return "", fmt.Errorf("ошибка подписи токена: %w", err)
+		slog.Error("Failed to sign license token", err)
+		return "", fmt.Errorf("token signing error: %w", err)
 	}
 
 	return tokenString, nil

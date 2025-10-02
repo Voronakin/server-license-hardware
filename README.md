@@ -1,21 +1,21 @@
 # server-license-hardware
 
-Библиотека на Golang для генерации и валидации лицензий для программного обеспечения.
+Golang library for generating and validating software licenses.
 
-## Описание
+## Description
 
-Библиотека создаёт токены JWT, содержащие хэши сервера, на основе его характеристик, что предотвращает повторное использование лицензий на других серверах. Токены JWT подписываются с использованием асимметричного шифрования. Библиотека разработана для ОС Windows.
+The library creates JWT tokens containing server hashes based on its hardware characteristics, which prevents license reuse on other servers. JWT tokens are signed using asymmetric encryption. The library is designed for Windows/Linux OS.
 
-## Архитектура
+## Architecture
 
-Пакет включает в себя 4 подпакета:
+The package includes 4 subpackages:
 
-1. **Генератор хэша машины** (`pkg/hosthash`) - создает JSON с характеристиками оборудования, уникальный для каждой машины
-2. **Шифрование** (`pkg/crypt`) - симметричное шифрование хэша машины с использованием AES
-3. **Генератор лицензий** (`pkg/license`) - создает JWT токен на основе зашифрованного хэша, подписанный асимметричным ключом
-4. **Валидатор лицензий** (`pkg/license`) - проверяет подпись лицензии и сравнивает характеристики с текущей машиной
+1. **Machine hash generator** (`pkg/hosthash`) - creates JSON with hardware characteristics, unique for each machine
+2. **Encryption** (`pkg/crypt`) - symmetric encryption of machine hash using AES
+3. **License generator** (`pkg/license`) - creates JWT token based on encrypted hash, signed with asymmetric key
+4. **License validator** (`pkg/license`) - verifies license signature and compares characteristics with current machine
 
-## Использование
+## Usage
 
 ```go
 import (
@@ -23,32 +23,44 @@ import (
     "server-license-hardware/pkg/license"
 )
 
-// Генерация хэша машины
+// Generate machine hash
 hash := hosthash.GenHash()
 
-// Создание лицензии
-licenseToken := license.CreateLicense(
-    license.EncryptHash(hash, hashKey),
-    privateKey,
-    "Test License",
-    expTime,
-    scopes,
-)
+// Define application scopes
+allScopes := []license.Scope{
+    {ID: "read", Name: "Read", Description: "Read data access"},
+    {ID: "write", Name: "Write", Description: "Write data access"},
+    {ID: "admin", Name: "Administration", Description: "Full system access"},
+}
 
-// Проверка лицензии
-licenseInfo := license.GetLicenseInfo(licenseToken, publicKey, hashKey)
+// Create generator (for license server)
+generator := license.NewGenerator([]byte(privateKey), allScopes)
+
+// Create validator (for client applications)
+validator := license.NewValidator([]byte(publicKey), allScopes)
+
+// Create license
+licenseToken, err := generator.Create(license.CreateOptions{
+    HardwareHash: license.EncryptHash(hash, hashKey),
+    Name:         "Test License",
+    ExpiresAt:    expTime,
+    Scopes:       []string{"read", "write"},
+})
+
+// Validate license
+licenseInfo, err := validator.Validate(licenseToken, hashKey)
 ```
 
-## Установка
+## Installation
 
 ```bash
 go get github.com/your-username/server-license-hardware
 ```
 
-## Пример
+## Example
 
-См. `cmd/example/main.go` для полного примера использования.
+See `cmd/example/main.go` for complete usage example.
 
-## Лицензия
+## License
 
 MIT License

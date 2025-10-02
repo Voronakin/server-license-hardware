@@ -21,7 +21,7 @@ type LicenseInfo struct {
 func GetLicense() string {
 	content, err := os.ReadFile("license.txt")
 	if err != nil {
-		slog.Error("Не удалось прочитать файл лицензии из файла", err)
+		slog.Error("Failed to read license file", err)
 		os.Exit(1)
 	}
 
