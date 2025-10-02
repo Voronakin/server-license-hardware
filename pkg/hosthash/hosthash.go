@@ -3,7 +3,6 @@ package hosthash
 import (
 	"encoding/json"
 	"log/slog"
-	"os"
 
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/host"
@@ -22,19 +21,19 @@ type Hash struct {
 	MAC          string `json:"mac"`
 }
 
-func GenHash() string {
+func GenHash() (string, error) {
 	hd, err := getHardwareData()
 	if err != nil {
 		slog.Error("Failed to determine machine identification data for hash generation", err)
-		os.Exit(1)
+		return "", err
 	}
 	hash, err := json.Marshal(hd)
 	if err != nil {
 		slog.Error("Failed to convert machine identification data to JSON for hash generation", err)
-		os.Exit(1)
+		return "", err
 	}
 
-	return string(hash)
+	return string(hash), nil
 }
 
 func getHardwareData() (*Hash, error) {

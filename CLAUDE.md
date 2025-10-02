@@ -87,3 +87,21 @@ type Scope struct {
 См. `cmd/example/main.go` для полного примера работы с библиотекой.
 
 Отвечай пользователю всегда на русском языке
+
+## Go-Specific Guidelines for Claude Code
+
+- Always run `go fmt`, `goimports`, and `golangci-lint` after any edit.
+- Write clear, idiomatic Go: avoid complex patterns, use short and meaningful names, and prefer simplicity over cleverness.
+- Exported names must have documentation comments, written as full sentences starting with the name.
+- Never ignore errors; always handle or propagate them appropriately.
+- Use context for goroutine lifecycle management.
+- Always write tests for new features and changes.
+- Run `go test` before committing any change.
+- When in doubt, ask for human review or leave a TODO comment for follow-up.
+- Prefer struct composition over inheritance.
+- Interfaces belong to the consumer, not the implementer.
+- Table-driven tests are preferred for repetitive test cases.
+- For performance-critical code, use benchmarks (go test -bench).
+
+
+TODO убрать slog

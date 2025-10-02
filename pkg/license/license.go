@@ -33,15 +33,19 @@ func GetLicense(filePath ...string) (string, error) {
 	return string(content), nil
 }
 
-func GetHash(key string) string {
-	return EncryptHash(hosthash.GenHash(), key)
+func GetHash(key string) (string, error) {
+	hash, err := hosthash.GenHash()
+	if err != nil {
+		return "", err
+	}
+	return EncryptHash(hash, key)
 }
 
-func EncryptHash(hash, hashKey string) string {
+func EncryptHash(hash, hashKey string) (string, error) {
 	return crypt.Encrypte(hash, hashKey)
 }
 
-func DecrypteHash(tokenHash, hashKey string) string {
+func DecrypteHash(tokenHash, hashKey string) (string, error) {
 	return crypt.Decrypte(tokenHash, hashKey)
 }
 

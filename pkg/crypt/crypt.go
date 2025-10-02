@@ -5,15 +5,19 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"log/slog"
-	"os"
 
 	"github.com/zenazn/pkcs7pad"
 )
 
-func Encrypte(content string, secret string) string {
-	key, _ := hex.DecodeString(secret)
+func Encrypte(content string, secret string) (string, error) {
+	key, err := hex.DecodeString(secret)
+	if err != nil {
+		slog.Error("Failed to decode secret key", err)
+		return "", err
+	}
 	plaintext := []byte(content)
 
 	plaintext = pkcs7pad.Pad(plaintext, aes.BlockSize)
@@ -26,13 +30,13 @@ func Encrypte(content string, secret string) string {
 	// assume that the plaintext is already of the correct length.
 	if len(plaintext)%aes.BlockSize != 0 {
 		slog.Error("plaintext is not a multiple of the block size")
-		os.Exit(1)
+		return "", fmt.Errorf("plaintext is not a multiple of the block size")
 	}
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		slog.Error("Failed to convert key", err)
-		os.Exit(1)
+		return "", err
 	}
 
 	// The IV needs to be unique, but not secure. Therefore it's common to
@@ -41,7 +45,7 @@ func Encrypte(content string, secret string) string {
 	iv := ciphertext[:aes.BlockSize]
 	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
 		slog.Error("Failed to read block", err)
-		os.Exit(1)
+		return "", err
 	}
 
 	mode := cipher.NewCBCEncrypter(block, iv)
@@ -51,24 +55,32 @@ func Encrypte(content string, secret string) string {
 	// (i.e. by using crypto/hmac) as well as being encrypted in order to
 	// be secure.
 
-	return hex.EncodeToString(ciphertext)
+	return hex.EncodeToString(ciphertext), nil
 }
 
-func Decrypte(content string, secret string) string {
-	key, _ := hex.DecodeString(secret)
-	ciphertext, _ := hex.DecodeString(content)
+func Decrypte(content string, secret string) (string, error) {
+	key, err := hex.DecodeString(secret)
+	if err != nil {
+		slog.Error("Failed to decode secret key", err)
+		return "", err
+	}
+	ciphertext, err := hex.DecodeString(content)
+	if err != nil {
+		slog.Error("Failed to decode ciphertext", err)
+		return "", err
+	}
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		slog.Error("Failed to convert key", err)
-		os.Exit(1)
+		return "", err
 	}
 
 	// The IV needs to be unique, but not secure. Therefore it's common to
 	// include it at the beginning of the ciphertext.
 	if len(ciphertext) < aes.BlockSize {
 		slog.Error("ciphertext too short")
-		os.Exit(1)
+		return "", fmt.Errorf("ciphertext too short")
 	}
 	iv := ciphertext[:aes.BlockSize]
 	ciphertext = ciphertext[aes.BlockSize:]
@@ -76,7 +88,7 @@ func Decrypte(content string, secret string) string {
 	// CBC mode always works in whole blocks.
 	if len(ciphertext)%aes.BlockSize != 0 {
 		slog.Error("ciphertext is not a multiple of the block size")
-		os.Exit(1)
+		return "", fmt.Errorf("ciphertext is not a multiple of the block size")
 	}
 
 	mode := cipher.NewCBCDecrypter(block, iv)
@@ -97,8 +109,8 @@ func Decrypte(content string, secret string) string {
 	ciphertext, err = pkcs7pad.Unpad(ciphertext)
 	if err != nil {
 		slog.Error("Error removing padding", err)
-		os.Exit(1)
+		return "", err
 	}
 
-	return string(ciphertext)
+	return string(ciphertext), nil
 }

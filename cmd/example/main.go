@@ -14,7 +14,11 @@ func main() {
 	slog.Info("Demonstration of the licensing library")
 
 	// Generate machine hash
-	hash := hosthash.GenHash()
+	hash, err := hosthash.GenHash()
+	if err != nil {
+		slog.Error("Error generating machine hash", err)
+		return
+	}
 	fmt.Printf("Machine hash: %s\n", hash)
 
 	// Example keys (in a real project should be actual keys)
@@ -74,7 +78,11 @@ EMB6y3I7Qv4LqWKoMvHh82clhfSjj+Y9au5XtAMOtaitEto+yzhpNImBHxL5Fvh9
 	expTime := time.Now().AddDate(1, 0, 0) // License for 1 year
 
 	// Encrypt machine hash
-	encryptedHash := license.EncryptHash(hash, hashKey)
+	encryptedHash, err := license.EncryptHash(hash, hashKey)
+	if err != nil {
+		slog.Error("Error encrypting machine hash", err)
+		return
+	}
 	fmt.Printf("Encrypted hash: %s\n", encryptedHash)
 
 	// Create license using generator
