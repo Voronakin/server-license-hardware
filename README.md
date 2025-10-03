@@ -54,7 +54,7 @@ licenseInfo, err := validator.Validate(licenseToken, hashKey)
 ## Installation
 
 ```bash
-go get github.com/your-username/server-license-hardware
+go get github.com/voronakin/server-license-hardware
 ```
 
 ## Example

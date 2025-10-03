@@ -20,7 +20,7 @@ func Encrypte(content string, secret string) (string, error) {
 
 	plaintext = pkcs7pad.Pad(plaintext, aes.BlockSize)
 
-	//TODO разобраться с пояснением
+	//TODO
 
 	// CBC mode works on blocks so plaintexts may need to be padded to the
 	// next whole block. For an example of such padding, see
@@ -86,7 +86,7 @@ func Decrypte(content string, secret string) (string, error) {
 	// CryptBlocks can work in-place if the two arguments are the same.
 	mode.CryptBlocks(ciphertext, ciphertext)
 
-	//TODO разобраться с пояснением
+	//TODO
 
 	// If the original plaintext lengths are not a multiple of the block
 	// size, padding would have to be added when encrypting, which would be
