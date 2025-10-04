@@ -11,7 +11,7 @@ import (
 	"github.com/zenazn/pkcs7pad"
 )
 
-func Encrypte(content string, secret string) (string, error) {
+func Encrypt(content string, secret string) (string, error) {
 	key, err := hex.DecodeString(secret)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode secret key: %w", err)
@@ -53,7 +53,7 @@ func Encrypte(content string, secret string) (string, error) {
 	return hex.EncodeToString(ciphertext), nil
 }
 
-func Decrypte(content string, secret string) (string, error) {
+func Decrypt(content string, secret string) (string, error) {
 	key, err := hex.DecodeString(secret)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode secret key: %w", err)

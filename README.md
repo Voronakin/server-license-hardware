@@ -61,6 +61,10 @@ go get github.com/voronakin/server-license-hardware
 
 See `cmd/example/main.go` for complete usage example.
 
+## Real-world Usage Example
+On the client machine, a hardware hash is generated and displayed to the user.
+The user provides this hash to the license generation service. The received license is saved in a text file on their machine.
+
 ## License
 
 MIT License

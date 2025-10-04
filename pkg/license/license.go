@@ -41,11 +41,11 @@ func GetHash(key string) (string, error) {
 }
 
 func EncryptHash(hash, hashKey string) (string, error) {
-	return crypt.Encrypte(hash, hashKey)
+	return crypt.Encrypt(hash, hashKey)
 }
 
-func DecrypteHash(tokenHash, hashKey string) (string, error) {
-	return crypt.Decrypte(tokenHash, hashKey)
+func DecryptHash(tokenHash, hashKey string) (string, error) {
+	return crypt.Decrypt(tokenHash, hashKey)
 }
 
 func (lic *LicenseInfo) CheckScope(id string) bool {
