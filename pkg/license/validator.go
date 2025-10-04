@@ -31,7 +31,7 @@ func (v *Validator) Validate(tokenString, hashKey string) (*LicenseInfo, error) 
 		return nil, fmt.Errorf("failed to get subject from token: %w", err)
 	}
 
-	// Декодируем хэш машины из токена
+	// Decode the machine hash from the token
 	decryptedHash, err := DecryptHash(sub, hashKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt machine hash: %w", err)

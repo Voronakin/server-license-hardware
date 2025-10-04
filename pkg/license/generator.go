@@ -32,7 +32,7 @@ func (g *Generator) Create(opts CreateOptions) (string, error) {
 		return "", fmt.Errorf("failed to parse private key: %w", err)
 	}
 
-	// Проверяем что запрошенные scope существуют
+	// Checking that the requested scope exists
 	if !g.validateScopes(opts.Scopes) {
 		return "", fmt.Errorf("unknown scopes: %v", opts.Scopes)
 	}
