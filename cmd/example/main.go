@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log/slog"
 	"time"
 
 	"server-license-hardware/pkg/hosthash"
@@ -11,12 +10,12 @@ import (
 
 func main() {
 	// Example of using the library
-	slog.Info("Demonstration of the licensing library")
+	fmt.Println("Demonstration of the licensing library")
 
 	// Generate machine hash
 	hash, err := hosthash.GenHash()
 	if err != nil {
-		slog.Error("Error generating machine hash", err)
+		fmt.Printf("Error generating machine hash: %v\n", err)
 		return
 	}
 	fmt.Printf("Machine hash: %s\n", hash)
@@ -80,7 +79,7 @@ EMB6y3I7Qv4LqWKoMvHh82clhfSjj+Y9au5XtAMOtaitEto+yzhpNImBHxL5Fvh9
 	// Encrypt machine hash
 	encryptedHash, err := license.EncryptHash(hash, hashKey)
 	if err != nil {
-		slog.Error("Error encrypting machine hash", err)
+		fmt.Printf("Error encrypting machine hash: %v\n", err)
 		return
 	}
 	fmt.Printf("Encrypted hash: %s\n", encryptedHash)
@@ -93,7 +92,7 @@ EMB6y3I7Qv4LqWKoMvHh82clhfSjj+Y9au5XtAMOtaitEto+yzhpNImBHxL5Fvh9
 		Scopes:       []string{"read", "write"},
 	})
 	if err != nil {
-		slog.Error("Error creating license", err)
+		fmt.Printf("Error creating license: %v\n", err)
 		return
 	}
 	fmt.Printf("License token: %s\n", licenseToken)
@@ -101,7 +100,7 @@ EMB6y3I7Qv4LqWKoMvHh82clhfSjj+Y9au5XtAMOtaitEto+yzhpNImBHxL5Fvh9
 	// Validate license using validator
 	licenseInfo, err := validator.Validate(licenseToken, hashKey)
 	if err != nil {
-		slog.Error("Error validating license", err)
+		fmt.Printf("Error validating license: %v\n", err)
 		return
 	}
 
