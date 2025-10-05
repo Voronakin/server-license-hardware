@@ -9,18 +9,18 @@ import (
 )
 
 type LicenseDetails struct {
-	Active        bool      // Общий статус активности лицензии
-	TokenActive   bool      // Статус валидности токена
-	HashActive    bool      // Статус соответствия хэша машины
-	Errors        []string  // Список всех ошибок валидации
-	TokenValue    string    // Исходное значение токена
-	HostHashValue string    // Расшифрованный хэш машины из лицензии
-	CurrentHash   string    // Текущий хэш машины
-	Scopes        []Scope   // Список scope из лицензии
-	ExpiresAt     time.Time // Время истечения лицензии
-	IssuedAt      time.Time // Время выдачи лицензии
-	NotBefore     time.Time // Время начала действия лицензии
-	Name          string    // Название лицензии
+	Active        bool      `json:"active"`        // Общий статус активности лицензии
+	TokenActive   bool      `json:"tokenActive"`   // Статус валидности токена
+	HashActive    bool      `json:"hashActive"`    // Статус соответствия хэша машины
+	Errors        []string  `json:"errors"`        // Список всех ошибок валидации
+	TokenValue    string    `json:"tokenValue"`    // Исходное значение токена
+	HostHashValue string    `json:"hostHashValue"` // Расшифрованный хэш машины из лицензии
+	CurrentHash   string    `json:"currentHash"`   // Текущий хэш машины
+	Scopes        []Scope   `json:"scopes"`        // Список scope из лицензии
+	ExpiresAt     time.Time `json:"expiresAt"`     // Время истечения лицензии
+	IssuedAt      time.Time `json:"issuedAt"`      // Время выдачи лицензии
+	NotBefore     time.Time `json:"notBefore"`     // Время начала действия лицензии
+	Name          string    `json:"name"`          // Название лицензии
 }
 
 func GetLicense(filePath ...string) (string, error) {

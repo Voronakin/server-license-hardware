@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -128,5 +129,14 @@ EMB6y3I7Qv4LqWKoMvHh82clhfSjj+Y9au5XtAMOtaitEto+yzhpNImBHxL5Fvh9
 		fmt.Println("Administrative access granted")
 	} else {
 		fmt.Println("Administrative access denied")
+	}
+
+	// Example of JSON serialization
+	fmt.Println("\n--- JSON Serialization Example ---")
+	jsonData, err := json.MarshalIndent(licenseDetails, "", "  ")
+	if err != nil {
+		fmt.Printf("Error serializing to JSON: %v\n", err)
+	} else {
+		fmt.Printf("License details as JSON:\n%s\n", string(jsonData))
 	}
 }
