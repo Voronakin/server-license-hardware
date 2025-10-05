@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"server-license-hardware/pkg/hosthash"
 )
 
 var (
@@ -102,6 +103,34 @@ func TestGenerator_Create_InvalidScopes(t *testing.T) {
 	_, err := generator.Create(opts)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown scopes")
+}
+
+func TestGenerator_Create_NoScopes(t *testing.T) {
+	generator := NewGenerator([]byte(testPrivateKey), testScopes)
+
+	// Use real machine hash for testing
+	realHash, err := hosthash.GenHash()
+	require.NoError(t, err)
+	encryptedHash, err := EncryptHash(realHash, testHashKey)
+	require.NoError(t, err)
+
+	opts := CreateOptions{
+		HardwareHash: encryptedHash,
+		Name:         "Test License Without Scopes",
+		ExpiresAt:    time.Now().AddDate(1, 0, 0),
+		Scopes:       []string{}, // Empty scopes
+	}
+
+	licenseToken, err := generator.Create(opts)
+	require.NoError(t, err)
+	assert.NotEmpty(t, licenseToken)
+
+	// Validate the license without scopes
+	validator := NewValidator([]byte(testPublicKey), testScopes)
+	licenseDetails := validator.ValidateDetails(licenseToken, testHashKey)
+	assert.True(t, licenseDetails.Active)
+	assert.Empty(t, licenseDetails.Scopes) // Should have no scopes
+	assert.Empty(t, licenseDetails.Errors) // Should have no errors about missing scopes
 }
 
 func TestGenerator_ValidateScopes(t *testing.T) {

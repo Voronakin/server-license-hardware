@@ -97,9 +97,7 @@ func (v *Validator) ValidateDetails(tokenString, hashKey string) *LicenseDetails
 		}
 	}
 
-	if len(scopeIds) == 0 {
-		licenseDetails.Errors = append(licenseDetails.Errors, "failed to determine license scopes")
-	} else {
+	if len(scopeIds) > 0 {
 		licenseDetails.Scopes = v.getScopesByIds(scopeIds)
 	}
 
