@@ -102,6 +102,3 @@ type Scope struct {
 - Interfaces belong to the consumer, not the implementer.
 - Table-driven tests are preferred for repetitive test cases.
 - For performance-critical code, use benchmarks (go test -bench).
-
-
-TODO убрать slog

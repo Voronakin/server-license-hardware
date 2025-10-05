@@ -97,28 +97,32 @@ EMB6y3I7Qv4LqWKoMvHh82clhfSjj+Y9au5XtAMOtaitEto+yzhpNImBHxL5Fvh9
 	}
 	fmt.Printf("License token: %s\n", licenseToken)
 
-	// Validate license using validator
-	licenseInfo, err := validator.Validate(licenseToken, hashKey)
-	if err != nil {
-		fmt.Printf("Error validating license: %v\n", err)
-		return
-	}
+	// Validate license using validator (simple check)
+	isValid := validator.Validate(licenseToken, hashKey)
+	fmt.Printf("License valid (simple check): %v\n", isValid)
 
-	fmt.Printf("License active: %v\n", licenseInfo.Active)
-	fmt.Printf("Token active: %v\n", licenseInfo.TokenActive)
-	fmt.Printf("Hash valid: %v\n", licenseInfo.HashActive)
-	if licenseInfo.ErrorMessage != "" {
-		fmt.Printf("Error: %s\n", licenseInfo.ErrorMessage)
+	// Validate license using detailed method
+	licenseDetails := validator.ValidateDetails(licenseToken, hashKey)
+
+	fmt.Printf("License active: %v\n", licenseDetails.Active)
+	fmt.Printf("Token active: %v\n", licenseDetails.TokenActive)
+	fmt.Printf("Hash valid: %v\n", licenseDetails.HashActive)
+	fmt.Printf("License name: %s\n", licenseDetails.Name)
+	fmt.Printf("Issued at: %s\n", licenseDetails.IssuedAt)
+	fmt.Printf("Expires at: %s\n", licenseDetails.ExpiresAt)
+
+	if len(licenseDetails.Errors) > 0 {
+		fmt.Printf("Validation errors: %v\n", licenseDetails.Errors)
 	}
 
 	// Check scopes
-	if licenseInfo.CheckScope("read") {
+	if licenseDetails.CheckScope("read") {
 		fmt.Println("Read access granted")
 	}
-	if licenseInfo.CheckScope("write") {
+	if licenseDetails.CheckScope("write") {
 		fmt.Println("Write access granted")
 	}
-	if licenseInfo.CheckScope("admin") {
+	if licenseDetails.CheckScope("admin") {
 		fmt.Println("Administrative access granted")
 	} else {
 		fmt.Println("Administrative access denied")

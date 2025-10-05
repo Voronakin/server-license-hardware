@@ -68,8 +68,8 @@ func TestEncryptHashAndDecrypteHash(t *testing.T) {
 	assert.Equal(t, originalHash, decryptedHash)
 }
 
-func TestLicenseInfo_CheckScope(t *testing.T) {
-	licenseInfo := &LicenseInfo{
+func TestLicenseDetails_CheckScope(t *testing.T) {
+	licenseDetails := &LicenseDetails{
 		Scopes: []Scope{
 			{ID: "read", Name: "Read", Description: "Read access"},
 			{ID: "write", Name: "Write", Description: "Write access"},
@@ -78,17 +78,17 @@ func TestLicenseInfo_CheckScope(t *testing.T) {
 	}
 
 	// Test existing scopes
-	assert.True(t, licenseInfo.CheckScope("read"))
-	assert.True(t, licenseInfo.CheckScope("write"))
-	assert.True(t, licenseInfo.CheckScope("admin"))
+	assert.True(t, licenseDetails.CheckScope("read"))
+	assert.True(t, licenseDetails.CheckScope("write"))
+	assert.True(t, licenseDetails.CheckScope("admin"))
 
 	// Test non-existing scope
-	assert.False(t, licenseInfo.CheckScope("nonexistent"))
-	assert.False(t, licenseInfo.CheckScope(""))
+	assert.False(t, licenseDetails.CheckScope("nonexistent"))
+	assert.False(t, licenseDetails.CheckScope(""))
 }
 
-func TestLicenseInfo_CheckScopes(t *testing.T) {
-	licenseInfo := &LicenseInfo{
+func TestLicenseDetails_CheckScopes(t *testing.T) {
+	licenseDetails := &LicenseDetails{
 		Scopes: []Scope{
 			{ID: "read", Name: "Read", Description: "Read access"},
 			{ID: "write", Name: "Write", Description: "Write access"},
@@ -97,16 +97,16 @@ func TestLicenseInfo_CheckScopes(t *testing.T) {
 	}
 
 	// Test all scopes exist
-	assert.True(t, licenseInfo.CheckScopes([]string{"read", "write"}))
-	assert.True(t, licenseInfo.CheckScopes([]string{"admin"}))
-	assert.True(t, licenseInfo.CheckScopes([]string{"read", "write", "admin"}))
+	assert.True(t, licenseDetails.CheckScopes([]string{"read", "write"}))
+	assert.True(t, licenseDetails.CheckScopes([]string{"admin"}))
+	assert.True(t, licenseDetails.CheckScopes([]string{"read", "write", "admin"}))
 
 	// Test with missing scope
-	assert.False(t, licenseInfo.CheckScopes([]string{"read", "nonexistent"}))
-	assert.False(t, licenseInfo.CheckScopes([]string{"nonexistent"}))
+	assert.False(t, licenseDetails.CheckScopes([]string{"read", "nonexistent"}))
+	assert.False(t, licenseDetails.CheckScopes([]string{"nonexistent"}))
 
 	// Test empty scopes
-	assert.True(t, licenseInfo.CheckScopes([]string{}))
+	assert.True(t, licenseDetails.CheckScopes([]string{}))
 }
 
 func TestGetHash(t *testing.T) {

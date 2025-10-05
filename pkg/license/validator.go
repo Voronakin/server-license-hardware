@@ -2,7 +2,6 @@ package license
 
 import (
 	"fmt"
-
 	"server-license-hardware/pkg/hosthash"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -20,38 +19,75 @@ func NewValidator(publicKey []byte, scopes []Scope) *Validator {
 	}
 }
 
-func (v *Validator) Validate(tokenString, hashKey string) (*LicenseInfo, error) {
+func (v *Validator) Validate(tokenString, hashKey string) bool {
+	return v.ValidateDetails(tokenString, hashKey).Active
+}
+
+func (v *Validator) ValidateDetails(tokenString, hashKey string) *LicenseDetails {
+	licenseDetails := &LicenseDetails{
+		TokenValue: tokenString,
+	}
+
 	token, claims, err := v.parseToken(tokenString)
 	if err != nil {
-		return nil, fmt.Errorf("token parsing error: %w", err)
+		licenseDetails.Errors = append(licenseDetails.Errors, fmt.Sprintf("token parsing error: %v", err))
+		return licenseDetails
 	}
 
+	licenseDetails.TokenActive = true
+
+	// Получение subject из токена
 	sub, err := token.Claims.GetSubject()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get subject from token: %w", err)
+		licenseDetails.Errors = append(licenseDetails.Errors, fmt.Sprintf("failed to get subject from token: %v", err))
+		return licenseDetails
 	}
 
-	// Decode the machine hash from the token
+	// Декодирование хэша машины из токена
 	decryptedHash, err := DecryptHash(sub, hashKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt machine hash: %w", err)
+		licenseDetails.Errors = append(licenseDetails.Errors, fmt.Sprintf("failed to decrypt machine hash: %v", err))
+		return licenseDetails
 	}
+	licenseDetails.HostHashValue = decryptedHash
+
+	// Генерация текущего хэша машины
 	currentHash, err := hosthash.GenHash()
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate current machine hash: %w", err)
+		licenseDetails.Errors = append(licenseDetails.Errors, fmt.Sprintf("failed to generate current machine hash: %v", err))
+		return licenseDetails
 	}
+	licenseDetails.CurrentHash = currentHash
+
+	// Проверка соответствия хэшей
 	hashValid := decryptedHash == currentHash
-
+	licenseDetails.HashActive = hashValid
 	if !hashValid {
-		return nil, fmt.Errorf("license is intended for another machine")
+		licenseDetails.Errors = append(licenseDetails.Errors, "license is intended for another machine")
 	}
 
-	_, err = token.Claims.GetExpirationTime()
+	// Получение времени истечения
+	exp, err := token.Claims.GetExpirationTime()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get expiration time: %w", err)
+		licenseDetails.Errors = append(licenseDetails.Errors, fmt.Sprintf("failed to get expiration time: %v", err))
+	} else if exp != nil {
+		licenseDetails.ExpiresAt = exp.String()
 	}
 
-	// Получаем scope из claims
+	// Получение времени выдачи
+	iat, err := token.Claims.GetIssuedAt()
+	if err != nil {
+		licenseDetails.Errors = append(licenseDetails.Errors, fmt.Sprintf("failed to get issued at time: %v", err))
+	} else if iat != nil {
+		licenseDetails.IssuedAt = iat.String()
+	}
+
+	// Получение названия лицензии
+	if name, ok := claims["name"].(string); ok {
+		licenseDetails.Name = name
+	}
+
+	// Получение scope из claims
 	var scopeIds []string
 	if scopeClaim, ok := claims["scope"].([]interface{}); ok {
 		for _, s := range scopeClaim {
@@ -62,18 +98,15 @@ func (v *Validator) Validate(tokenString, hashKey string) (*LicenseInfo, error) 
 	}
 
 	if len(scopeIds) == 0 {
-		return nil, fmt.Errorf("failed to determine license scopes")
+		licenseDetails.Errors = append(licenseDetails.Errors, "failed to determine license scopes")
+	} else {
+		licenseDetails.Scopes = v.getScopesByIds(scopeIds)
 	}
 
-	return &LicenseInfo{
-		Active:        true,
-		TokenActive:   true,
-		HashActive:    hashValid,
-		ErrorMessage:  "",
-		TokenValue:    tokenString,
-		HostHashValue: decryptedHash,
-		Scopes:        v.getScopesByIds(scopeIds),
-	}, nil
+	// Определение общего статуса активности
+	licenseDetails.Active = licenseDetails.TokenActive && licenseDetails.HashActive && len(licenseDetails.Errors) == 0
+
+	return licenseDetails
 }
 
 func (v *Validator) parseToken(tokenString string) (*jwt.Token, jwt.MapClaims, error) {

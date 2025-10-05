@@ -8,14 +8,18 @@ import (
 	"server-license-hardware/pkg/hosthash"
 )
 
-type LicenseInfo struct {
-	Active        bool
-	TokenActive   bool
-	HashActive    bool
-	ErrorMessage  string
-	TokenValue    string
-	HostHashValue string
-	Scopes        []Scope
+type LicenseDetails struct {
+	Active        bool     // Общий статус активности лицензии
+	TokenActive   bool     // Статус валидности токена
+	HashActive    bool     // Статус соответствия хэша машины
+	Errors        []string // Список всех ошибок валидации
+	TokenValue    string   // Исходное значение токена
+	HostHashValue string   // Расшифрованный хэш машины из лицензии
+	CurrentHash   string   // Текущий хэш машины
+	Scopes        []Scope  // Список scope из лицензии
+	ExpiresAt     string   // Время истечения лицензии
+	IssuedAt      string   // Время выдачи лицензии
+	Name          string   // Название лицензии
 }
 
 func GetLicense(filePath ...string) (string, error) {
@@ -48,7 +52,7 @@ func DecryptHash(tokenHash, hashKey string) (string, error) {
 	return crypt.Decrypt(tokenHash, hashKey)
 }
 
-func (lic *LicenseInfo) CheckScope(id string) bool {
+func (lic *LicenseDetails) CheckScope(id string) bool {
 	for _, scope := range lic.Scopes {
 		if id == scope.ID {
 			return true
@@ -57,7 +61,7 @@ func (lic *LicenseInfo) CheckScope(id string) bool {
 	return false
 }
 
-func (lic *LicenseInfo) CheckScopes(ids []string) bool {
+func (lic *LicenseDetails) CheckScopes(ids []string) bool {
 nextScope:
 	for _, id := range ids {
 		for _, scope := range lic.Scopes {

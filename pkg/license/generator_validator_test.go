@@ -124,17 +124,15 @@ func TestGenerator_ValidateScopes(t *testing.T) {
 func TestValidator_Validate_InvalidToken(t *testing.T) {
 	validator := NewValidator([]byte(testPublicKey), testScopes)
 
-	_, err := validator.Validate("invalid.token.string", testHashKey)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "token parsing error")
+	result := validator.Validate("invalid.token.string", testHashKey)
+	assert.False(t, result)
 }
 
 func TestValidator_Validate_InvalidPublicKey(t *testing.T) {
 	validator := NewValidator([]byte("invalid-public-key"), testScopes)
 
-	_, err := validator.Validate("some.token", testHashKey)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid public key")
+	result := validator.Validate("some.token", testHashKey)
+	assert.False(t, result)
 }
 
 func TestValidator_GetScopesByIds(t *testing.T) {
