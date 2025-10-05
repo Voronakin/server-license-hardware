@@ -3,23 +3,24 @@ package license
 import (
 	"fmt"
 	"os"
-
 	"server-license-hardware/pkg/crypt"
 	"server-license-hardware/pkg/hosthash"
+	"time"
 )
 
 type LicenseDetails struct {
-	Active        bool     // Общий статус активности лицензии
-	TokenActive   bool     // Статус валидности токена
-	HashActive    bool     // Статус соответствия хэша машины
-	Errors        []string // Список всех ошибок валидации
-	TokenValue    string   // Исходное значение токена
-	HostHashValue string   // Расшифрованный хэш машины из лицензии
-	CurrentHash   string   // Текущий хэш машины
-	Scopes        []Scope  // Список scope из лицензии
-	ExpiresAt     string   // Время истечения лицензии
-	IssuedAt      string   // Время выдачи лицензии
-	Name          string   // Название лицензии
+	Active        bool      // Общий статус активности лицензии
+	TokenActive   bool      // Статус валидности токена
+	HashActive    bool      // Статус соответствия хэша машины
+	Errors        []string  // Список всех ошибок валидации
+	TokenValue    string    // Исходное значение токена
+	HostHashValue string    // Расшифрованный хэш машины из лицензии
+	CurrentHash   string    // Текущий хэш машины
+	Scopes        []Scope   // Список scope из лицензии
+	ExpiresAt     time.Time // Время истечения лицензии
+	IssuedAt      time.Time // Время выдачи лицензии
+	NotBefore     time.Time // Время начала действия лицензии
+	Name          string    // Название лицензии
 }
 
 func GetLicense(filePath ...string) (string, error) {

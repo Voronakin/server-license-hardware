@@ -71,7 +71,7 @@ func (v *Validator) ValidateDetails(tokenString, hashKey string) *LicenseDetails
 	if err != nil {
 		licenseDetails.Errors = append(licenseDetails.Errors, fmt.Sprintf("failed to get expiration time: %v", err))
 	} else if exp != nil {
-		licenseDetails.ExpiresAt = exp.String()
+		licenseDetails.ExpiresAt = exp.Time
 	}
 
 	// Получение времени выдачи
@@ -79,7 +79,15 @@ func (v *Validator) ValidateDetails(tokenString, hashKey string) *LicenseDetails
 	if err != nil {
 		licenseDetails.Errors = append(licenseDetails.Errors, fmt.Sprintf("failed to get issued at time: %v", err))
 	} else if iat != nil {
-		licenseDetails.IssuedAt = iat.String()
+		licenseDetails.IssuedAt = iat.Time
+	}
+
+	// Получение времени начала действия
+	nbf, err := token.Claims.GetNotBefore()
+	if err != nil {
+		licenseDetails.Errors = append(licenseDetails.Errors, fmt.Sprintf("failed to get not before time: %v", err))
+	} else if nbf != nil {
+		licenseDetails.NotBefore = nbf.Time
 	}
 
 	// Получение названия лицензии

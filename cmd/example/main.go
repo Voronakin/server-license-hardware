@@ -84,11 +84,12 @@ EMB6y3I7Qv4LqWKoMvHh82clhfSjj+Y9au5XtAMOtaitEto+yzhpNImBHxL5Fvh9
 	}
 	fmt.Printf("Encrypted hash: %s\n", encryptedHash)
 
-	// Create license using generator
+	// Create license using generator with NotBefore
 	licenseToken, err := generator.Create(license.CreateOptions{
 		HardwareHash: encryptedHash,
 		Name:         "Test License",
 		ExpiresAt:    expTime,
+		NotBefore:    time.Now(), // Лицензия активна сразу
 		Scopes:       []string{"read", "write"},
 	})
 	if err != nil {
@@ -108,8 +109,9 @@ EMB6y3I7Qv4LqWKoMvHh82clhfSjj+Y9au5XtAMOtaitEto+yzhpNImBHxL5Fvh9
 	fmt.Printf("Token active: %v\n", licenseDetails.TokenActive)
 	fmt.Printf("Hash valid: %v\n", licenseDetails.HashActive)
 	fmt.Printf("License name: %s\n", licenseDetails.Name)
-	fmt.Printf("Issued at: %s\n", licenseDetails.IssuedAt)
-	fmt.Printf("Expires at: %s\n", licenseDetails.ExpiresAt)
+	fmt.Printf("Issued at: %s\n", licenseDetails.IssuedAt.Format(time.RFC3339))
+	fmt.Printf("Expires at: %s\n", licenseDetails.ExpiresAt.Format(time.RFC3339))
+	fmt.Printf("Not before: %s\n", licenseDetails.NotBefore.Format(time.RFC3339))
 
 	if len(licenseDetails.Errors) > 0 {
 		fmt.Printf("Validation errors: %v\n", licenseDetails.Errors)

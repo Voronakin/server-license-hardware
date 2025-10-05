@@ -16,6 +16,7 @@ type CreateOptions struct {
 	HardwareHash string
 	Name         string
 	ExpiresAt    time.Time
+	NotBefore    time.Time // Время начала действия (по умолчанию IssuedAt)
 	Scopes       []string
 }
 
@@ -37,12 +38,18 @@ func (g *Generator) Create(opts CreateOptions) (string, error) {
 		return "", fmt.Errorf("unknown scopes: %v", opts.Scopes)
 	}
 
+	issuedAt := time.Now()
+	notBefore := opts.NotBefore
+	if notBefore.IsZero() {
+		notBefore = issuedAt
+	}
+
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
 		"name":  opts.Name,
 		"sub":   opts.HardwareHash,
-		"nbf":   time.Now().Unix(),
+		"nbf":   notBefore.Unix(),
 		"exp":   opts.ExpiresAt.Unix(),
-		"iat":   time.Now().Unix(),
+		"iat":   issuedAt.Unix(),
 		"scope": opts.Scopes,
 	})
 
