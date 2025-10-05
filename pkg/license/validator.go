@@ -1,8 +1,10 @@
 package license
 
 import (
+	"errors"
 	"fmt"
 	"server-license-hardware/pkg/hosthash"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -30,23 +32,34 @@ func (v *Validator) ValidateDetails(tokenString, hashKey string) *LicenseDetails
 
 	token, claims, err := v.parseToken(tokenString)
 	if err != nil {
-		licenseDetails.Errors = append(licenseDetails.Errors, fmt.Sprintf("token parsing error: %v", err))
+		licenseDetails.Errors = append(licenseDetails.Errors, NewValidationError(
+			TokenParseError,
+			fmt.Sprintf("failed to parse JWT token: %s", err.Error()),
+		))
 		return licenseDetails
 	}
 
+	// TokenActive true если токен валиден с точки зрения подписи (включая токены с временными ошибками)
+	// Временные ошибки обрабатываются отдельно в нашей собственной валидации
 	licenseDetails.TokenActive = true
 
 	// Получение subject из токена
 	sub, err := token.Claims.GetSubject()
 	if err != nil {
-		licenseDetails.Errors = append(licenseDetails.Errors, fmt.Sprintf("failed to get subject from token: %v", err))
+		licenseDetails.Errors = append(licenseDetails.Errors, NewValidationError(
+			TokenSubjectError,
+			fmt.Sprintf("failed to get subject from token: %s", err.Error()),
+		))
 		return licenseDetails
 	}
 
 	// Декодирование хэша машины из токена
 	decryptedHash, err := DecryptHash(sub, hashKey)
 	if err != nil {
-		licenseDetails.Errors = append(licenseDetails.Errors, fmt.Sprintf("failed to decrypt machine hash: %v", err))
+		licenseDetails.Errors = append(licenseDetails.Errors, NewValidationError(
+			HashDecryptError,
+			fmt.Sprintf("failed to decrypt machine hash: %s", err.Error()),
+		))
 		return licenseDetails
 	}
 	licenseDetails.HostHashValue = decryptedHash
@@ -54,7 +67,10 @@ func (v *Validator) ValidateDetails(tokenString, hashKey string) *LicenseDetails
 	// Генерация текущего хэша машины
 	currentHash, err := hosthash.GenHash()
 	if err != nil {
-		licenseDetails.Errors = append(licenseDetails.Errors, fmt.Sprintf("failed to generate current machine hash: %v", err))
+		licenseDetails.Errors = append(licenseDetails.Errors, NewValidationError(
+			HashGenerateError,
+			fmt.Sprintf("failed to generate current machine hash: %s", err.Error()),
+		))
 		return licenseDetails
 	}
 	licenseDetails.CurrentHash = currentHash
@@ -63,13 +79,16 @@ func (v *Validator) ValidateDetails(tokenString, hashKey string) *LicenseDetails
 	hashValid := decryptedHash == currentHash
 	licenseDetails.HashActive = hashValid
 	if !hashValid {
-		licenseDetails.Errors = append(licenseDetails.Errors, "license is intended for another machine")
+		licenseDetails.Errors = append(licenseDetails.Errors, NewHashMismatchError())
 	}
 
 	// Получение времени истечения
 	exp, err := token.Claims.GetExpirationTime()
 	if err != nil {
-		licenseDetails.Errors = append(licenseDetails.Errors, fmt.Sprintf("failed to get expiration time: %v", err))
+		licenseDetails.Errors = append(licenseDetails.Errors, NewValidationError(
+			ExpirationTimeError,
+			"",
+		))
 	} else if exp != nil {
 		licenseDetails.ExpiresAt = exp.Time
 	}
@@ -77,7 +96,10 @@ func (v *Validator) ValidateDetails(tokenString, hashKey string) *LicenseDetails
 	// Получение времени выдачи
 	iat, err := token.Claims.GetIssuedAt()
 	if err != nil {
-		licenseDetails.Errors = append(licenseDetails.Errors, fmt.Sprintf("failed to get issued at time: %v", err))
+		licenseDetails.Errors = append(licenseDetails.Errors, NewValidationError(
+			IssuedAtTimeError,
+			"",
+		))
 	} else if iat != nil {
 		licenseDetails.IssuedAt = iat.Time
 	}
@@ -85,7 +107,10 @@ func (v *Validator) ValidateDetails(tokenString, hashKey string) *LicenseDetails
 	// Получение времени начала действия
 	nbf, err := token.Claims.GetNotBefore()
 	if err != nil {
-		licenseDetails.Errors = append(licenseDetails.Errors, fmt.Sprintf("failed to get not before time: %v", err))
+		licenseDetails.Errors = append(licenseDetails.Errors, NewValidationError(
+			NotBeforeTimeError,
+			"",
+		))
 	} else if nbf != nil {
 		licenseDetails.NotBefore = nbf.Time
 	}
@@ -109,6 +134,20 @@ func (v *Validator) ValidateDetails(tokenString, hashKey string) *LicenseDetails
 		licenseDetails.Scopes = v.getScopesByIds(scopeIds)
 	}
 
+	// Проверка временной валидации
+	currentTime := time.Now()
+
+	//TODO продумать необходимость с учетом  того что в пасинге может проигнорироваться валидация по времени
+	// (технически это может и НЕ компенсировать проблемы повторного парсинга с выдачей,
+	// если например валидация внутри используемого пакета jwt сначала идет по времени, а потом по каким-либо другим важным критериям)
+	if currentTime.Before(licenseDetails.NotBefore) {
+		licenseDetails.Errors = append(licenseDetails.Errors, NewLicenseNotYetActive())
+	}
+
+	if currentTime.After(licenseDetails.ExpiresAt) {
+		licenseDetails.Errors = append(licenseDetails.Errors, NewLicenseExpired())
+	}
+
 	// Определение общего статуса активности
 	licenseDetails.Active = licenseDetails.TokenActive && licenseDetails.HashActive && len(licenseDetails.Errors) == 0
 
@@ -128,7 +167,33 @@ func (v *Validator) parseToken(tokenString string) (*jwt.Token, jwt.MapClaims, e
 		return myPublicKey, nil
 	})
 
+	// Если ошибка связана с временными claims (nbf/exp), все равно возвращаем токен для дальнейшей проверки
 	if err != nil {
+		//TODO продумать вынос в отдельную функцию  кейс с проблемой по времени
+
+		// Проверяем, является ли ошибка временной (nbf/exp)
+		if isTimeValidationError(err) {
+			// Парсим токен без временной валидации, чтобы получить claims
+			token, parseErr := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+				if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+					return nil, fmt.Errorf("unexpected signing method: %s", token.Header["alg"])
+				}
+				return myPublicKey, nil
+			}, jwt.WithoutClaimsValidation())
+
+			if parseErr != nil {
+				return nil, nil, fmt.Errorf("token parsing error: %w", parseErr)
+			}
+
+			if claims, ok := token.Claims.(jwt.MapClaims); ok {
+				//TODO !!! доработать, так как нельзя в рамках текущей функции просто выдать,
+				// так как получается игнорируется ошибка по времени действия
+				//TODO разобраться почему тесты не отслеживают данный баг
+				return token, claims, nil
+			}
+			return nil, nil, fmt.Errorf("invalid token claims")
+		}
+
 		return nil, nil, fmt.Errorf("token validation error: %w", err)
 	}
 
@@ -137,6 +202,11 @@ func (v *Validator) parseToken(tokenString string) (*jwt.Token, jwt.MapClaims, e
 	}
 
 	return nil, nil, fmt.Errorf("invalid token")
+}
+
+// isTimeValidationError проверяет, является ли ошибка связанной с временной валидацией (nbf/exp)
+func isTimeValidationError(err error) bool {
+	return errors.Is(err, jwt.ErrTokenExpired) || errors.Is(err, jwt.ErrTokenNotValidYet) || errors.Is(err, jwt.ErrTokenUsedBeforeIssued)
 }
 
 func (v *Validator) getScopesByIds(ids []string) []Scope {

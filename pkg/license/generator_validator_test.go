@@ -4,9 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"server-license-hardware/pkg/hosthash"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"server-license-hardware/pkg/hosthash"
 )
 
 var (
@@ -180,4 +181,158 @@ func TestValidator_GetScopesByIds(t *testing.T) {
 	// Test empty input
 	scopes = validator.getScopesByIds([]string{})
 	assert.Empty(t, scopes)
+}
+
+func TestValidator_Validate_NotYetActive(t *testing.T) {
+	generator := NewGenerator([]byte(testPrivateKey), testScopes)
+	validator := NewValidator([]byte(testPublicKey), testScopes)
+
+	// Use real machine hash for testing
+	realHash, err := hosthash.GenHash()
+	require.NoError(t, err)
+	encryptedHash, err := EncryptHash(realHash, testHashKey)
+	require.NoError(t, err)
+
+	// Create license that will be active in the future
+	opts := CreateOptions{
+		HardwareHash: encryptedHash,
+		Name:         "Future License",
+		ExpiresAt:    time.Now().AddDate(1, 0, 0), // 1 year from now
+		NotBefore:    time.Now().AddDate(0, 0, 1), // Active from tomorrow
+		Scopes:       []string{"read"},
+	}
+
+	licenseToken, err := generator.Create(opts)
+	require.NoError(t, err)
+
+	// Validate license - should be not active yet
+	licenseDetails := validator.ValidateDetails(licenseToken, testHashKey)
+	assert.False(t, licenseDetails.Active)
+	assert.Len(t, licenseDetails.Errors, 1)
+	assert.Equal(t, LicenseNotYetActive, licenseDetails.Errors[0].Type)
+	assert.True(t, licenseDetails.TokenActive)
+	assert.True(t, licenseDetails.HashActive)
+}
+
+func TestValidator_Validate_Expired(t *testing.T) {
+	generator := NewGenerator([]byte(testPrivateKey), testScopes)
+	validator := NewValidator([]byte(testPublicKey), testScopes)
+
+	// Use real machine hash for testing
+	realHash, err := hosthash.GenHash()
+	require.NoError(t, err)
+	encryptedHash, err := EncryptHash(realHash, testHashKey)
+	require.NoError(t, err)
+
+	// Create license that has already expired
+	opts := CreateOptions{
+		HardwareHash: encryptedHash,
+		Name:         "Expired License",
+		ExpiresAt:    time.Now().AddDate(-1, 0, 0), // Expired 1 year ago
+		NotBefore:    time.Now().AddDate(-2, 0, 0), // Was active 2 years ago
+		Scopes:       []string{"read"},
+	}
+
+	licenseToken, err := generator.Create(opts)
+	require.NoError(t, err)
+
+	// Validate license - should be expired
+	licenseDetails := validator.ValidateDetails(licenseToken, testHashKey)
+	assert.False(t, licenseDetails.Active)
+	assert.Len(t, licenseDetails.Errors, 1)
+	assert.Equal(t, LicenseExpired, licenseDetails.Errors[0].Type)
+	assert.True(t, licenseDetails.TokenActive)
+	assert.True(t, licenseDetails.HashActive)
+}
+
+func TestValidator_Validate_Active(t *testing.T) {
+	generator := NewGenerator([]byte(testPrivateKey), testScopes)
+	validator := NewValidator([]byte(testPublicKey), testScopes)
+
+	// Use real machine hash for testing
+	realHash, err := hosthash.GenHash()
+	require.NoError(t, err)
+	encryptedHash, err := EncryptHash(realHash, testHashKey)
+	require.NoError(t, err)
+
+	// Create license that is currently active
+	opts := CreateOptions{
+		HardwareHash: encryptedHash,
+		Name:         "Active License",
+		ExpiresAt:    time.Now().AddDate(1, 0, 0),  // Expires in 1 year
+		NotBefore:    time.Now().AddDate(0, 0, -1), // Was active since yesterday
+		Scopes:       []string{"read"},
+	}
+
+	licenseToken, err := generator.Create(opts)
+	require.NoError(t, err)
+
+	// Validate license - should be active
+	licenseDetails := validator.ValidateDetails(licenseToken, testHashKey)
+	assert.True(t, licenseDetails.Active)
+	assert.Empty(t, licenseDetails.Errors)
+	assert.True(t, licenseDetails.TokenActive)
+	assert.True(t, licenseDetails.HashActive)
+}
+
+func TestValidator_Validate_NoTimeValidation(t *testing.T) {
+	generator := NewGenerator([]byte(testPrivateKey), testScopes)
+	validator := NewValidator([]byte(testPublicKey), testScopes)
+
+	// Use real machine hash for testing
+	realHash, err := hosthash.GenHash()
+	require.NoError(t, err)
+	encryptedHash, err := EncryptHash(realHash, testHashKey)
+	require.NoError(t, err)
+
+	// Create license without explicit NotBefore (should use IssuedAt as default)
+	opts := CreateOptions{
+		HardwareHash: encryptedHash,
+		Name:         "License Without NotBefore",
+		ExpiresAt:    time.Now().AddDate(1, 0, 0), // Expires in 1 year
+		// NotBefore is not set - should default to IssuedAt
+		Scopes: []string{"read"},
+	}
+
+	licenseToken, err := generator.Create(opts)
+	require.NoError(t, err)
+
+	// Validate license - should be active
+	licenseDetails := validator.ValidateDetails(licenseToken, testHashKey)
+	assert.True(t, licenseDetails.Active)
+	assert.Empty(t, licenseDetails.Errors)
+	assert.True(t, licenseDetails.TokenActive)
+	assert.True(t, licenseDetails.HashActive)
+	// NotBefore should be equal to IssuedAt when not explicitly set
+	assert.Equal(t, licenseDetails.NotBefore, licenseDetails.IssuedAt)
+}
+
+func TestValidator_Validate_HashMismatch(t *testing.T) {
+	generator := NewGenerator([]byte(testPrivateKey), testScopes)
+	validator := NewValidator([]byte(testPublicKey), testScopes)
+
+	// Create a fake hardware hash that doesn't match the current machine
+	fakeHash := "fake-hardware-hash"
+	encryptedHash, err := EncryptHash(fakeHash, testHashKey)
+	require.NoError(t, err)
+
+	// Create license with fake hash
+	opts := CreateOptions{
+		HardwareHash: encryptedHash,
+		Name:         "License With Fake Hash",
+		ExpiresAt:    time.Now().AddDate(1, 0, 0),  // Expires in 1 year
+		NotBefore:    time.Now().AddDate(0, 0, -1), // Was active since yesterday
+		Scopes:       []string{"read"},
+	}
+
+	licenseToken, err := generator.Create(opts)
+	require.NoError(t, err)
+
+	// Validate license - should fail due to hash mismatch
+	licenseDetails := validator.ValidateDetails(licenseToken, testHashKey)
+	assert.False(t, licenseDetails.Active)
+	assert.Len(t, licenseDetails.Errors, 1)
+	assert.Equal(t, HashMismatchError, licenseDetails.Errors[0].Type)
+	assert.True(t, licenseDetails.TokenActive)
+	assert.False(t, licenseDetails.HashActive)
 }
