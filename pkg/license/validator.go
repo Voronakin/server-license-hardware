@@ -46,10 +46,7 @@ func (v *Validator) ValidateDetails(tokenString, hashKey string) *LicenseDetails
 	// Получение subject из токена
 	sub, err := token.Claims.GetSubject()
 	if err != nil {
-		licenseDetails.Errors = append(licenseDetails.Errors, NewValidationError(
-			TokenSubjectError,
-			fmt.Sprintf("failed to get subject from token: %s", err.Error()),
-		))
+		licenseDetails.Errors = append(licenseDetails.Errors, NewClaimGetError("subject"))
 		return licenseDetails
 	}
 
@@ -85,10 +82,7 @@ func (v *Validator) ValidateDetails(tokenString, hashKey string) *LicenseDetails
 	// Получение времени истечения
 	exp, err := token.Claims.GetExpirationTime()
 	if err != nil {
-		licenseDetails.Errors = append(licenseDetails.Errors, NewValidationError(
-			ExpirationTimeError,
-			"",
-		))
+		licenseDetails.Errors = append(licenseDetails.Errors, NewClaimGetError("expiration time"))
 	} else if exp != nil {
 		licenseDetails.ExpiresAt = exp.Time
 	}
@@ -96,10 +90,7 @@ func (v *Validator) ValidateDetails(tokenString, hashKey string) *LicenseDetails
 	// Получение времени выдачи
 	iat, err := token.Claims.GetIssuedAt()
 	if err != nil {
-		licenseDetails.Errors = append(licenseDetails.Errors, NewValidationError(
-			IssuedAtTimeError,
-			"",
-		))
+		licenseDetails.Errors = append(licenseDetails.Errors, NewClaimGetError("issued at time"))
 	} else if iat != nil {
 		licenseDetails.IssuedAt = iat.Time
 	}
@@ -107,10 +98,7 @@ func (v *Validator) ValidateDetails(tokenString, hashKey string) *LicenseDetails
 	// Получение времени начала действия
 	nbf, err := token.Claims.GetNotBefore()
 	if err != nil {
-		licenseDetails.Errors = append(licenseDetails.Errors, NewValidationError(
-			NotBeforeTimeError,
-			"",
-		))
+		licenseDetails.Errors = append(licenseDetails.Errors, NewClaimGetError("not before time"))
 	} else if nbf != nil {
 		licenseDetails.NotBefore = nbf.Time
 	}
