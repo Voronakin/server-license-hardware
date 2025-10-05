@@ -16,13 +16,20 @@ func TestGetLicense_DefaultFile(t *testing.T) {
 	oldPath := "license.txt"
 	if _, err := os.Stat(oldPath); err == nil {
 		// Backup existing license.txt if it exists
-		os.Rename(oldPath, oldPath+".backup")
-		defer os.Rename(oldPath+".backup", oldPath)
+		err := os.Rename(oldPath, oldPath+".backup")
+		require.NoError(t, err)
+		defer func() {
+			err := os.Rename(oldPath+".backup", oldPath)
+			require.NoError(t, err)
+		}()
 	}
 
 	err := os.WriteFile("license.txt", []byte(licenseContent), 0644)
 	require.NoError(t, err)
-	defer os.Remove("license.txt")
+	defer func() {
+		err := os.Remove("license.txt")
+		require.NoError(t, err)
+	}()
 
 	result, err := GetLicense()
 	require.NoError(t, err)
@@ -34,11 +41,15 @@ func TestGetLicense_CustomFile(t *testing.T) {
 	licenseContent := "custom license content"
 	tempFile, err := os.CreateTemp("", "custom_license_test.txt")
 	require.NoError(t, err)
-	defer os.Remove(tempFile.Name())
+	defer func() {
+		err := os.Remove(tempFile.Name())
+		require.NoError(t, err)
+	}()
 
 	_, err = tempFile.WriteString(licenseContent)
 	require.NoError(t, err)
-	tempFile.Close()
+	err = tempFile.Close()
+	require.NoError(t, err)
 
 	// Test with custom file path
 	result, err := GetLicense(tempFile.Name())
