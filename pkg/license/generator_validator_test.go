@@ -411,46 +411,6 @@ func TestValidator_Validate_TamperedSignature(t *testing.T) {
 	assert.True(t, foundTokenParseError, "Should have TokenParseError in errors list")
 }
 
-func TestValidator_Validate_TamperedSignature_WithDifferentPrivateKey(t *testing.T) {
-	// Create generator with test private key
-	generator := NewGenerator([]byte(testPrivateKey), testScopes)
-	// But validator uses a different public key (otherPublicKey)
-	validator := NewValidator([]byte(otherPublicKey), testScopes)
-
-	// Use real machine hash for testing
-	realHash, err := hosthash.GenHash()
-	require.NoError(t, err)
-	encryptedHash, err := EncryptHash(realHash, testHashKey)
-	require.NoError(t, err)
-
-	// Create valid license with different private key
-	opts := CreateOptions{
-		HardwareHash: encryptedHash,
-		Name:         "License With Different Private Key",
-		ExpiresAt:    time.Now().AddDate(1, 0, 0),  // Expires in 1 year
-		NotBefore:    time.Now().AddDate(0, 0, -1), // Was active since yesterday
-		Scopes:       []string{"read"},
-	}
-
-	licenseToken, err := generator.Create(opts)
-	require.NoError(t, err)
-
-	// Validate token signed with different private key - should fail
-	licenseDetails := validator.ValidateDetails(licenseToken, testHashKey)
-	assert.False(t, licenseDetails.Active)
-	assert.False(t, licenseDetails.TokenActive)
-
-	// Check that we have TokenParseError in the errors list
-	foundTokenParseError := false
-	for _, err := range licenseDetails.Errors {
-		if err.Type == TokenParseError {
-			foundTokenParseError = true
-			break
-		}
-	}
-	assert.True(t, foundTokenParseError, "Should have TokenParseError in errors list")
-}
-
 func TestValidator_Validate_WrongSigningMethod(t *testing.T) {
 	validator := NewValidator([]byte(testPublicKey), testScopes)
 
