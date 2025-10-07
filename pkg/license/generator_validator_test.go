@@ -1,11 +1,13 @@
 package license
 
 import (
+	"strings"
 	"testing"
 	"time"
 
 	"server-license-hardware/pkg/hosthash"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -54,6 +56,17 @@ EMB6y3I7Qv4LqWKoMvHh82clhfSjj+Y9au5XtAMOtaitEto+yzhpNImBHxL5Fvh9
 		{ID: "admin", Name: "Administration", Description: "Full system access"},
 	}
 	testHashKey = "6368616e676520746869732070617373776f726420746f206120736563726574"
+
+	// Additional test keys for signature verification tests
+	otherPublicKey = `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA6S7asUuzq5Q/3U9rbs+P
+kDVIdjgmtgWreG5qWPsC9xXZKiMV1AiV9LXyqQsAYpCqEDM3XbfmZqGb48yLhb/X
+qZaKgSYaC/h2DjM7lgrIQAp9902Rr8fUmLN2ivr5tnLxUUOnMOc2SQtr9dgzTONY
+W5Zu3PwyvAWk5D6ueIUhLtYzpcB+etoNdL3Ir2746KIy/VUsDwAM7dhrqSK8U2xF
+CGlau4ikOTtvzDownAMHMrfE7q1B6WZQDAQlBmxRQsyKln5DIsKv6xauNsHRgBAK
+ctUxZG8M4QJIx3S6Aughd3RZC4Ca5Ae9fd8L8mlNYBCrQhOZ7dS0f4at4arlLcaj
+twIDAQAB
+-----END PUBLIC KEY-----`
 )
 
 func TestGenerator_Create(t *testing.T) {
@@ -209,7 +222,9 @@ func TestValidator_Validate_NotYetActive(t *testing.T) {
 	licenseDetails := validator.ValidateDetails(licenseToken, testHashKey)
 	assert.False(t, licenseDetails.Active)
 	assert.Len(t, licenseDetails.Errors, 1)
-	assert.Equal(t, LicenseNotYetActive, licenseDetails.Errors[0].Type)
+	firstErr := licenseDetails.FirstError()
+	assert.NotNil(t, firstErr)
+	assert.Equal(t, LicenseNotYetActive, firstErr.Type)
 	assert.True(t, licenseDetails.TokenActive)
 	assert.True(t, licenseDetails.HashActive)
 }
@@ -240,7 +255,9 @@ func TestValidator_Validate_Expired(t *testing.T) {
 	licenseDetails := validator.ValidateDetails(licenseToken, testHashKey)
 	assert.False(t, licenseDetails.Active)
 	assert.Len(t, licenseDetails.Errors, 1)
-	assert.Equal(t, LicenseExpired, licenseDetails.Errors[0].Type)
+	firstErr := licenseDetails.FirstError()
+	assert.NotNil(t, firstErr)
+	assert.Equal(t, LicenseExpired, firstErr.Type)
 	assert.True(t, licenseDetails.TokenActive)
 	assert.True(t, licenseDetails.HashActive)
 }
@@ -332,7 +349,227 @@ func TestValidator_Validate_HashMismatch(t *testing.T) {
 	licenseDetails := validator.ValidateDetails(licenseToken, testHashKey)
 	assert.False(t, licenseDetails.Active)
 	assert.Len(t, licenseDetails.Errors, 1)
-	assert.Equal(t, HashMismatchError, licenseDetails.Errors[0].Type)
+	firstErr := licenseDetails.FirstError()
+	assert.NotNil(t, firstErr)
+	assert.Equal(t, HashMismatchError, firstErr.Type)
 	assert.True(t, licenseDetails.TokenActive)
 	assert.False(t, licenseDetails.HashActive)
+}
+
+func TestValidator_Validate_TamperedSignature(t *testing.T) {
+	generator := NewGenerator([]byte(testPrivateKey), testScopes)
+	validator := NewValidator([]byte(testPublicKey), testScopes)
+
+	// Use real machine hash for testing
+	realHash, err := hosthash.GenHash()
+	require.NoError(t, err)
+	encryptedHash, err := EncryptHash(realHash, testHashKey)
+	require.NoError(t, err)
+
+	// Create valid license
+	opts := CreateOptions{
+		HardwareHash: encryptedHash,
+		Name:         "Valid License",
+		ExpiresAt:    time.Now().AddDate(1, 0, 0),  // Expires in 1 year
+		NotBefore:    time.Now().AddDate(0, 0, -1), // Was active since yesterday
+		Scopes:       []string{"read"},
+	}
+
+	licenseToken, err := generator.Create(opts)
+	require.NoError(t, err)
+
+	// Tamper with the signature by modifying the last part of the token (signature)
+	// JWT token format: header.payload.signature
+	parts := strings.Split(licenseToken, ".")
+	if len(parts) != 3 {
+		t.Fatal("Invalid JWT token format")
+	}
+
+	// Modify the signature part by inserting a character in the middle
+	signature := parts[2]
+	if len(signature) == 0 {
+		t.Fatal("Empty signature")
+	}
+	// Insert "X" in the middle of the signature
+	midPoint := len(signature) / 2
+	tamperedSignature := signature[:midPoint-1] + "X" + signature[midPoint:]
+	tamperedToken := parts[0] + "." + parts[1] + "." + tamperedSignature
+
+	// Validate tampered token - should fail due to invalid signature
+	licenseDetails := validator.ValidateDetails(tamperedToken, testHashKey)
+	assert.False(t, licenseDetails.Active)
+	assert.False(t, licenseDetails.TokenActive)
+
+	// Check that we have TokenParseError in the errors list
+	foundTokenParseError := false
+	for _, err := range licenseDetails.Errors {
+		if err.Type == TokenParseError {
+			foundTokenParseError = true
+			break
+		}
+	}
+	assert.True(t, foundTokenParseError, "Should have TokenParseError in errors list")
+}
+
+func TestValidator_Validate_TamperedSignature_WithDifferentPrivateKey(t *testing.T) {
+	// Create generator with test private key
+	generator := NewGenerator([]byte(testPrivateKey), testScopes)
+	// But validator uses a different public key (otherPublicKey)
+	validator := NewValidator([]byte(otherPublicKey), testScopes)
+
+	// Use real machine hash for testing
+	realHash, err := hosthash.GenHash()
+	require.NoError(t, err)
+	encryptedHash, err := EncryptHash(realHash, testHashKey)
+	require.NoError(t, err)
+
+	// Create valid license with different private key
+	opts := CreateOptions{
+		HardwareHash: encryptedHash,
+		Name:         "License With Different Private Key",
+		ExpiresAt:    time.Now().AddDate(1, 0, 0),  // Expires in 1 year
+		NotBefore:    time.Now().AddDate(0, 0, -1), // Was active since yesterday
+		Scopes:       []string{"read"},
+	}
+
+	licenseToken, err := generator.Create(opts)
+	require.NoError(t, err)
+
+	// Validate token signed with different private key - should fail
+	licenseDetails := validator.ValidateDetails(licenseToken, testHashKey)
+	assert.False(t, licenseDetails.Active)
+	assert.False(t, licenseDetails.TokenActive)
+
+	// Check that we have TokenParseError in the errors list
+	foundTokenParseError := false
+	for _, err := range licenseDetails.Errors {
+		if err.Type == TokenParseError {
+			foundTokenParseError = true
+			break
+		}
+	}
+	assert.True(t, foundTokenParseError, "Should have TokenParseError in errors list")
+}
+
+func TestValidator_Validate_WrongSigningMethod(t *testing.T) {
+	validator := NewValidator([]byte(testPublicKey), testScopes)
+
+	// Use real machine hash for testing
+	realHash, err := hosthash.GenHash()
+	require.NoError(t, err)
+	encryptedHash, err := EncryptHash(realHash, testHashKey)
+	require.NoError(t, err)
+
+	// Create token with wrong signing method (HS256 instead of RS256)
+	claims := jwt.MapClaims{
+		"sub":   encryptedHash,
+		"name":  "License With Wrong Method",
+		"exp":   time.Now().AddDate(1, 0, 0).Unix(),
+		"iat":   time.Now().Unix(),
+		"nbf":   time.Now().AddDate(0, 0, -1).Unix(),
+		"scope": []string{"read"},
+	}
+
+	// Create token with HMAC (HS256) instead of RSA (RS256)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte("wrong-secret-key"))
+	require.NoError(t, err)
+
+	// Validate token with wrong signing method - should fail
+	licenseDetails := validator.ValidateDetails(tokenString, testHashKey)
+	assert.False(t, licenseDetails.Active)
+	assert.False(t, licenseDetails.TokenActive)
+
+	// Check that we have TokenParseError in the errors list
+	foundTokenParseError := false
+	for _, err := range licenseDetails.Errors {
+		if err.Type == TokenParseError {
+			foundTokenParseError = true
+			break
+		}
+	}
+	assert.True(t, foundTokenParseError, "Should have TokenParseError in errors list")
+}
+
+func TestValidator_Validate_NoneAlgorithm(t *testing.T) {
+	validator := NewValidator([]byte(testPublicKey), testScopes)
+
+	// Use real machine hash for testing
+	realHash, err := hosthash.GenHash()
+	require.NoError(t, err)
+	encryptedHash, err := EncryptHash(realHash, testHashKey)
+	require.NoError(t, err)
+
+	// Create token with "none" algorithm (no signature)
+	claims := jwt.MapClaims{
+		"sub":   encryptedHash,
+		"name":  "License With None Algorithm",
+		"exp":   time.Now().AddDate(1, 0, 0).Unix(),
+		"iat":   time.Now().Unix(),
+		"nbf":   time.Now().AddDate(0, 0, -1).Unix(),
+		"scope": []string{"read"},
+	}
+
+	// Create token with "none" algorithm
+	token := jwt.NewWithClaims(jwt.SigningMethodNone, claims)
+
+	// Sign with "none" method (no signature)
+	tokenString, err := token.SignedString(jwt.UnsafeAllowNoneSignatureType)
+	require.NoError(t, err)
+
+	// Validate token with "none" algorithm - should fail
+	licenseDetails := validator.ValidateDetails(tokenString, testHashKey)
+	assert.False(t, licenseDetails.Active)
+	assert.False(t, licenseDetails.TokenActive)
+
+	// Check that we have TokenParseError in the errors list
+	foundTokenParseError := false
+	for _, err := range licenseDetails.Errors {
+		if err.Type == TokenParseError {
+			foundTokenParseError = true
+			break
+		}
+	}
+	assert.True(t, foundTokenParseError, "Should have TokenParseError in errors list")
+}
+
+func TestValidator_Validate_WrongPublicKey(t *testing.T) {
+	// Create license with one key pair
+	generator := NewGenerator([]byte(testPrivateKey), testScopes)
+
+	// Use real machine hash for testing
+	realHash, err := hosthash.GenHash()
+	require.NoError(t, err)
+	encryptedHash, err := EncryptHash(realHash, testHashKey)
+	require.NoError(t, err)
+
+	// Create valid license
+	opts := CreateOptions{
+		HardwareHash: encryptedHash,
+		Name:         "Valid License",
+		ExpiresAt:    time.Now().AddDate(1, 0, 0),  // Expires in 1 year
+		NotBefore:    time.Now().AddDate(0, 0, -1), // Was active since yesterday
+		Scopes:       []string{"read"},
+	}
+
+	licenseToken, err := generator.Create(opts)
+	require.NoError(t, err)
+
+	// Try to validate with wrong public key (from different key pair)
+	validator := NewValidator([]byte(otherPublicKey), testScopes)
+	licenseDetails := validator.ValidateDetails(licenseToken, testHashKey)
+
+	// Should fail because signature was created with different private key
+	assert.False(t, licenseDetails.Active)
+	assert.False(t, licenseDetails.TokenActive)
+
+	// Check that we have TokenParseError in the errors list
+	foundTokenParseError := false
+	for _, err := range licenseDetails.Errors {
+		if err.Type == TokenParseError {
+			foundTokenParseError = true
+			break
+		}
+	}
+	assert.True(t, foundTokenParseError, "Should have TokenParseError in errors list")
 }

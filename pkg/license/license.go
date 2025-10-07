@@ -74,3 +74,11 @@ nextScope:
 	}
 	return true
 }
+
+// FirstError возвращает первую ошибку из списка ошибок или nil, если ошибок нет
+func (lic *LicenseDetails) FirstError() *ValidationError {
+	if len(lic.Errors) == 0 {
+		return nil
+	}
+	return &lic.Errors[0]
+}
