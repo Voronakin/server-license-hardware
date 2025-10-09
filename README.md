@@ -1,70 +1,173 @@
 # server-license-hardware
 
-Golang library for generating and validating software licenses.
+Библиотека на языке Go для генерации и проверки лицензий на программное обеспечение.
 
-## Description
+## Основное назначение
 
-The library creates JWT tokens containing server hashes based on its hardware characteristics, which prevents license reuse on other servers. JWT tokens are signed using asymmetric encryption. The library is designed for Windows/Linux OS.
+**Внедрение в проекты для защиты ПО** - библиотека предназначена для интеграции в приложения для управления доступом и лицензированием.
 
-## Architecture
+Библиотека создает JWT токены, содержащие хэши сервера на основе его аппаратных характеристик, что предотвращает 
+повторное использование лицензий на других серверах.
+JWT токены подписываются с использованием асимметричного шифрования. Библиотека поддерживает ОС Windows и Linux.
 
-The package includes 4 subpackages:
+## Дополнительная возможность
 
-1. **Machine hash generator** (`pkg/hosthash`) - creates JSON with hardware characteristics, unique for each machine
-2. **Encryption** (`pkg/crypt`) - symmetric encryption of machine hash using AES
-3. **License generator** (`pkg/license`) - creates JWT token based on encrypted hash, signed with asymmetric key
-4. **License validator** (`pkg/license`) - verifies license signature and compares characteristics with current machine
+**Простой сервер генерации лицензий** - инструмент `cmd/license-generator` может использоваться как самостоятельное приложение для выдачи лицензий.
 
-## Usage
+## Архитектура
+
+Пакет включает 4 компонента:
+
+1. **Генератор хэша машины** (`pkg/hosthash`) - создает JSON с характеристиками оборудования, уникальными для каждой машины
+2. **Шифрование** (`pkg/crypt`) - симметричное шифрование хэша машины с использованием AES
+3. **Генератор лицензий** (`pkg/license/generator.go`) - создает JWT токен на основе зашифрованного хэша, подписанный асимметричным ключом
+4. **Валидатор лицензий** (`pkg/license/validator.go`) - проверяет подпись лицензии и сравнивает характеристики с текущей машиной
+
+## Использование (внедрение в проекты)
+
+### Интеграция в приложение
 
 ```go
 import (
-    "server-license-hardware/pkg/hosthash"
-    "server-license-hardware/pkg/license"
+    "voronakin/server-license-hardware/hosthash"
+    "voronakin/server-license-hardware/license"
 )
 
-// Generate machine hash
-hash := hosthash.GenHash()
+// В реальном проекте эти ключи должны быть зашиты в приложение
+const (
+    hashKey    = "ваш_32_байтный_ключ_шифрования_хэша" // Должен быть одинаковым на сервере и клиенте
+    publicKey  = `-----BEGIN PUBLIC KEY-----
+ваш_публичный_rsa_ключ
+-----END PUBLIC KEY-----`
+)
 
-// Define application scopes
+// Генерация хэша машины
+hash, err := hosthash.GenHash()
+
+// Определение scope для конкретного приложения
 allScopes := []license.Scope{
-    {ID: "read", Name: "Read", Description: "Read data access"},
-    {ID: "write", Name: "Write", Description: "Write data access"},
-    {ID: "admin", Name: "Administration", Description: "Full system access"},
+    {ID: "read", Name: "Чтение", Description: "Доступ на чтение данных"},
+    {ID: "write", Name: "Запись", Description: "Доступ на запись данных"},
+    {ID: "admin", Name: "Администрирование", Description: "Полный доступ к системе"},
 }
 
-// Create generator (for license server)
+// Создание генератора (для сервера лицензий)
+// Использует приватный ключ, который НЕ должен попадать в клиентские приложения
 generator := license.NewGenerator([]byte(privateKey), allScopes)
 
-// Create validator (for client applications)
+// Создание валидатора (для клиентских приложений)
+// Использует публичный ключ, который зашивается в приложение
 validator := license.NewValidator([]byte(publicKey), allScopes)
 
-// Create license
+// Создание лицензии (на сервере)
 licenseToken, err := generator.Create(license.CreateOptions{
-    HardwareHash: license.EncryptHash(hash, hashKey),
-    Name:         "Test License",
+    HardwareHash: license.EncryptHash(hash, hashKey), // Хэш шифруется для сокрытия параметров оборудования
+    Name:         "Тестовая лицензия",
     ExpiresAt:    expTime,
     Scopes:       []string{"read", "write"},
 })
 
-// Validate license
-licenseInfo, err := validator.Validate(licenseToken, hashKey)
+// Валидация лицензии (на клиенте)
+// Простая проверка валидности
+isValid := validator.Validate(licenseToken, hashKey)
+// Получение подробной информации о лицензии
+licenseInfo := validator.ValidateDetails(licenseToken, hashKey)
+
+// Проверка scope
+if licenseInfo.CheckScope("read") {
+    // Разрешить доступ на чтение
+}
 ```
 
-## Installation
+### Сценарии использования
+
+- **Защита коммерческого ПО** - предотвращение нелегального распространения
+- **Управление доступом** - гибкая система разрешений через scope
+- **Ограничение по оборудованию** - привязка лицензии к конкретному серверу
+- **Временные лицензии** - ограничение срока действия
+
+## Установка
 
 ```bash
 go get github.com/voronakin/server-license-hardware
 ```
 
-## Example
+## Примеры
 
-See `cmd/example/main.go` for complete usage example.
+### Пример интеграции
+См. `cmd/example/main.go`.
 
-## Real-world Usage Example
-On the client machine, a hardware hash is generated and displayed to the user.
-The user provides this hash to the license generation service. The received license is saved in a text file on their machine.
+### Сервер генерации лицензий
+Используйте `cmd/license-generator` как вариант реализации инструмент для выдачи лицензий:
 
-## License
+```bash
+# Интерактивный режим
+go run cmd/license-generator/main.go --interactive
+
+# Прямая генерация
+go run cmd/license-generator/main.go private.pem myhashkey123 "Моя лицензия" 365 read,write,admin
+```
+
+## Реальный пример использования
+
+1. На клиентской машине генерируется хэш оборудования и отображается пользователю
+2. Пользователь предоставляет этот хэш сервису генерации лицензий
+3. Полученная лицензия сохраняется в текстовом файле на машине пользователя
+4. Приложение проверяет лицензию при запуске и ограничивает функционал в соответствии со scope
+
+## Безопасность
+
+### Управление ключами
+
+**При реальном использовании в конечное ПО должны быть зашиты:**
+- **Ключ шифрования хэша** (AES) - для шифрования/дешифрования хэша оборудования
+- **Публичный ключ** (RSA) - для проверки подписи JWT токенов
+
+**Приватный ключ** (RSA) используется только на сервере генерации лицензий и никогда не должен попадать в клиентские приложения.
+
+### Назначение шифрования хэша
+
+Шифрование хэша оборудования служит для:
+- **Защиты от анализа** - скрывает, какие именно параметры оборудования используются для генерации хэша
+- **Усложнения подгонки** - затрудняет подбор характеристик сервера под существующую лицензию
+
+### Криптографические методы
+
+- **Асимметричное шифрование** - RSA подпись JWT токенов
+- **Симметричное шифрование** - AES шифрование хэша оборудования
+- **Привязка к оборудованию** - предотвращение передачи лицензий
+- **Гибкая система scope** - управление правами доступа
+
+## Генерация ключей
+
+### Генерация RSA ключей для асимметричного шифрования
+
+Для подписи JWT токенов используются пары RSA ключей. Приватный ключ используется на сервере генерации лицензий,
+публичный ключ зашивается в клиентские приложения.
+
+#### Использование OpenSSL:
+
+```bash
+# Генерация приватного ключа RSA (2048 бит)
+openssl genrsa -out private.pem 2048
+
+# Извлечение публичного ключа из приватного
+openssl rsa -in private.pem -pubout -out public.pem
+```
+
+### Генерация AES ключа для шифрования хэша
+
+Для шифрования хэша оборудования используется симметричное шифрование AES-CBC. Ключ должен быть ровно 32 байта (256 бит).
+
+#### Генерация случайного ключа:
+
+```bash
+# Генерация случайного 32-байтного ключа в hex формате
+openssl rand -hex 32
+```
+
+**Важно**: Ключ шифрования хэша должен быть одинаковым на сервере генерации лицензий и во всех клиентских приложениях.
+
+## Лицензия
 
 MIT License

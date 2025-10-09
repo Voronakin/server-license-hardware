@@ -3,27 +3,27 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+	"strings"
 	"time"
 
 	"server-license-hardware/pkg/hosthash"
 	"server-license-hardware/pkg/license"
 )
 
-func main() {
-	// Example of using the library
-	fmt.Println("Demonstration of the licensing library")
+// ПРИМЕР публичного ключа для проверки подписи JWT
+var publicKey = `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArvVXSJaDX2d0fBlVig2+
+iQYjlwG1v9B8WO35Q7h6ewpSG2LrBfSoah1tw/dK/Ve10Q9J8i09Ad+Zz3GzaVOt
+N/h14Y5l/uouWGDeQIPnIygHtXcXbBnQDiYzXwhXLLhxHoZ/tUpLKUT9C/URZset
+2zaHhzB5uRz5PCYPqA+RJKJqIOvhBzE/qKKiUvtXCjnb+Uz5WeZy+bg7zl2KaDji
+EMB6y3I7Qv4LqWKoMvHh82clhfSjj+Y9au5XtAMOtaitEto+yzhpNImBHxL5Fvh9
+5UQ8K6I9ME5lu4zdJSYHIq6DcNg3Zz9UFL0sh4jDC9o0KtNK9UPiMeSd+3IXrxz7
+3wIDAQAB
+-----END PUBLIC KEY-----`
 
-	// Generate machine hash
-	hash, err := hosthash.GenHash()
-	if err != nil {
-		fmt.Printf("Error generating machine hash: %v\n", err)
-		return
-	}
-	fmt.Printf("Machine hash: %s\n", hash)
-
-	// Example keys (in a real project should be actual keys)
-	hashKey := "6368616e676520746869732070617373776f726420746f206120736563726574" // 32-байтный ключ AES
-	tokenPrivateKey := `-----BEGIN PRIVATE KEY-----
+// ПРИМЕР приватного ключа для подписи JWT (RSA)
+var privateKey = `-----BEGIN PRIVATE KEY-----
 MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCu9VdIloNfZ3R8
 GVWKDb6JBiOXAbW/0HxY7flDuHp7ClIbYusF9KhqHW3D90r9V7XRD0nyLT0B35nP
 cbNpU603+HXhjmX+6i5YYN5Ag+cjKAe1dxdsGdAOJjNfCFcsuHEehn+1SkspRP0L
@@ -51,92 +51,130 @@ XDjwpvyy4NoXSCSDF8TUGZUk5lgxGIEdMLk+1Vmtt/Wxm1T4tiGyDs9SQC2RDOaj
 tQfPnP+RKyzH0cHaSCE4iNeCwwM9a19h+tNfZzKSpQWIdHS7dTSCrdUWj57j3LDq
 8viG/LjvUmB4d6aQhH+oALM=
 -----END PRIVATE KEY-----`
-	tokenPublicKey := `-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArvVXSJaDX2d0fBlVig2+
-iQYjlwG1v9B8WO35Q7h6ewpSG2LrBfSoah1tw/dK/Ve10Q9J8i09Ad+Zz3GzaVOt
-N/h14Y5l/uouWGDeQIPnIygHtXcXbBnQDiYzXwhXLLhxHoZ/tUpLKUT9C/URZset
-2zaHhzB5uRz5PCYPqA+RJKJqIOvhBzE/qKKiUvtXCjnb+Uz5WeZy+bg7zl2KaDji
-EMB6y3I7Qv4LqWKoMvHh82clhfSjj+Y9au5XtAMOtaitEto+yzhpNImBHxL5Fvh9
-5UQ8K6I9ME5lu4zdJSYHIq6DcNg3Zz9UFL0sh4jDC9o0KtNK9UPiMeSd+3IXrxz7
-3wIDAQAB
------END PUBLIC KEY-----`
 
-	// Define scopes for the specific application
+// ПРИМЕР ключа шибрования hash
+var hashKey = "6368616e676520746869732070617373776f726420746f206120736563726574" // 32-байтный ключ AES
+
+// Пример интеграции библиотеки в реальный проект
+// Демонстрирует основные сценарии использования для внедрения в приложения
+
+func main() {
+	fmt.Println("=== Пример интеграции библиотеки лицензирования ===")
+	fmt.Println("Основное назначение: внедрение в проекты для защиты ПО")
+	fmt.Println()
+
+	// Сценарий 1: Генерация лицензии (для сервера лицензий)
+	fmt.Println("1. Сценарий генерации лицензии:")
+	licenseToken := generateLicenseExample()
+
+	fmt.Println("\n" + strings.Repeat("=", 60) + "\n")
+
+	// Сценарий 2: Валидация лицензии (для клиентских приложений)
+	fmt.Println("2. Сценарий валидации лицензии:")
+	validateLicenseExample(licenseToken)
+}
+
+// демонстрирует процесс генерации лицензии
+func generateLicenseExample() string {
+	fmt.Println("\n--- Генерация лицензии (для сервера лицензий) ---")
+
+	// Генерация хэша машины
+	hash, err := hosthash.GenHash()
+	if err != nil {
+		log.Fatalf("Ошибка генерации хэша машины: %v", err)
+	}
+	fmt.Printf("✓ Хэш машины сгенерирован (%d символов)\n", len(hash))
+
+	// Определение scope для конкретного приложения
 	allScopes := []license.Scope{
-		{ID: "read", Name: "Read", Description: "Read data access"},
-		{ID: "write", Name: "Write", Description: "Write data access"},
-		{ID: "admin", Name: "Administration", Description: "Full system access"},
+		{ID: "read", Name: "Чтение", Description: "Доступ на чтение данных"},
+		{ID: "write", Name: "Запись", Description: "Доступ на запись данных"},
+		{ID: "admin", Name: "Администрирование", Description: "Полный доступ к системе"},
+		{ID: "export", Name: "Экспорт", Description: "Доступ к экспорту данных"},
 	}
 
-	// Create generator (for license server)
-	generator := license.NewGenerator([]byte(tokenPrivateKey), allScopes)
+	// Создание генератора (для сервера лицензий)
+	generator := license.NewGenerator([]byte(privateKey), allScopes)
+	fmt.Println("✓ Генератор лицензий инициализирован")
 
-	// Create validator (for client applications)
-	validator := license.NewValidator([]byte(tokenPublicKey), allScopes)
-
-	// Example of creating a license
-	expTime := time.Now().AddDate(1, 0, 0) // License for 1 year
-
-	// Encrypt machine hash
+	// Шифрование хэша машины
 	encryptedHash, err := license.EncryptHash(hash, hashKey)
 	if err != nil {
-		fmt.Printf("Error encrypting machine hash: %v\n", err)
-		return
+		log.Fatalf("Ошибка шифрования хэша машины: %v", err)
 	}
-	fmt.Printf("Encrypted hash: %s\n", encryptedHash)
+	fmt.Println("✓ Хэш машины зашифрован")
 
-	// Create license using generator with NotBefore
+	name := "Премиум лицензия"
+	scopes := []string{"read", "write", "export"}
+
+	// Создание лицензии
+	expTime := time.Now().AddDate(1, 0, 0) // Лицензия на 1 год
 	licenseToken, err := generator.Create(license.CreateOptions{
 		HardwareHash: encryptedHash,
-		Name:         "Test License",
+		Name:         name,
 		ExpiresAt:    expTime,
-		NotBefore:    time.Now(), // Лицензия активна сразу
-		Scopes:       []string{"read", "write"},
+		NotBefore:    time.Now(),
+		Scopes:       scopes,
 	})
 	if err != nil {
-		fmt.Printf("Error creating license: %v\n", err)
-		return
+		log.Fatalf("Ошибка создания лицензии: %v", err)
 	}
-	fmt.Printf("License token: %s\n", licenseToken)
 
-	// Validate license using validator (simple check)
+	fmt.Printf("✓ Лицензия создана (%d символов)\n", len(licenseToken))
+	fmt.Printf("  Название: %s\n", name)
+	fmt.Printf("  Действительна до: %s\n", expTime.Format("02.01.2006"))
+	fmt.Printf("  Разрешения: %s\n", strings.Join(scopes, ", "))
+
+	return licenseToken
+}
+
+// validateLicenseExample демонстрирует процесс валидации лицензии
+func validateLicenseExample(licenseToken string) {
+	fmt.Println("\n--- Валидация лицензии (для клиентских приложений) ---")
+
+	// Определение scope (должно совпадать с использованным при генерации)
+	allScopes := []license.Scope{
+		{ID: "read", Name: "Чтение", Description: "Доступ на чтение данных"},
+		{ID: "write", Name: "Запись", Description: "Доступ на запись данных"},
+		{ID: "admin", Name: "Администрирование", Description: "Полный доступ к системе"},
+		{ID: "export", Name: "Экспорт", Description: "Доступ к экспорту данных"},
+	}
+
+	// Создание валидатора (для клиентских приложений)
+	validator := license.NewValidator([]byte(publicKey), allScopes)
+	fmt.Println("✓ Валидатор лицензий инициализирован")
+
+	// В реальном проекте лицензия загружается из файла, БД или переменной окружения
+	// Для демонстрации используем сгенерированную ранее лицензию
+
+	// Простая проверка валидности
 	isValid := validator.Validate(licenseToken, hashKey)
-	fmt.Printf("License valid (simple check): %v\n", isValid)
+	fmt.Printf("✓ Простая проверка: %v\n", isValid)
 
-	// Validate license using detailed method
+	// Детальная проверка с получением информации
 	licenseDetails := validator.ValidateDetails(licenseToken, hashKey)
 
-	fmt.Printf("License active: %v\n", licenseDetails.Active)
-	fmt.Printf("Token active: %v\n", licenseDetails.TokenActive)
-	fmt.Printf("Hash valid: %v\n", licenseDetails.HashActive)
-	fmt.Printf("License name: %s\n", licenseDetails.Name)
-	fmt.Printf("Issued at: %s\n", licenseDetails.IssuedAt.Format(time.RFC3339))
-	fmt.Printf("Expires at: %s\n", licenseDetails.ExpiresAt.Format(time.RFC3339))
-	fmt.Printf("Not before: %s\n", licenseDetails.NotBefore.Format(time.RFC3339))
+	fmt.Printf("✓ Детальная проверка завершена\n")
+	fmt.Printf("  Активна: %v\n", licenseDetails.Active)
+	fmt.Printf("  Токен валиден: %v\n", licenseDetails.TokenActive)
+	fmt.Printf("  Хэш валиден: %v\n", licenseDetails.HashActive)
 
 	if len(licenseDetails.Errors) > 0 {
-		fmt.Printf("Validation errors: %v\n", licenseDetails.Errors)
+		fmt.Printf("  Ошибки валидации: %v\n", licenseDetails.Errors)
 	}
 
-	// Check scopes
-	if licenseDetails.CheckScope("read") {
-		fmt.Println("Read access granted")
-	}
-	if licenseDetails.CheckScope("write") {
-		fmt.Println("Write access granted")
-	}
-	if licenseDetails.CheckScope("admin") {
-		fmt.Println("Administrative access granted")
-	} else {
-		fmt.Println("Administrative access denied")
+	// Проверка scope
+	fmt.Println("\n--- Проверка разрешений ---")
+	requiredScopes := []string{"read", "write", "export", "admin"}
+	for _, scope := range requiredScopes {
+		if licenseDetails.CheckScope(scope) {
+			fmt.Printf("  ✓ Разрешение '%s': ДОСТУП РАЗРЕШЕН\n", scope)
+		} else {
+			fmt.Printf("  ✗ Разрешение '%s': доступ запрещен\n", scope)
+		}
 	}
 
-	// Example of JSON serialization
-	fmt.Println("\n--- JSON Serialization Example ---")
-	jsonData, err := json.MarshalIndent(licenseDetails, "", "  ")
-	if err != nil {
-		fmt.Printf("Error serializing to JSON: %v\n", err)
-	} else {
-		fmt.Printf("License details as JSON:\n%s\n", string(jsonData))
-	}
+	// Пример сериализации информации о лицензии для логирования
+	jsonData, _ := json.MarshalIndent(licenseDetails, "", "  ")
+	fmt.Printf("\nИнформация о лицензии (JSON):\n%s\n", string(jsonData))
 }
