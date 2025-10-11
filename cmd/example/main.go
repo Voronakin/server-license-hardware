@@ -59,29 +59,44 @@ var hashKey = "6368616e676520746869732070617373776f726420746f206120736563726574"
 // Демонстрирует основные сценарии использования для внедрения в приложения
 
 func main() {
+	_, err := RunLicenseExample()
+	if err != nil {
+		log.Fatalf("Ошибка выполнения примера: %v", err)
+	}
+}
+
+// RunLicenseExample выполняет полный пример работы с библиотекой лицензирования
+// Возвращает сгенерированный токен лицензии и ошибку, если таковая возникла
+func RunLicenseExample() (string, error) {
 	fmt.Println("=== Пример интеграции библиотеки лицензирования ===")
 	fmt.Println("Основное назначение: внедрение в проекты для защиты ПО")
 	fmt.Println()
 
 	// Сценарий 1: Генерация лицензии (для сервера лицензий)
 	fmt.Println("1. Сценарий генерации лицензии:")
-	licenseToken := generateLicenseExample()
+	licenseToken, err := generateLicenseExample()
+	if err != nil {
+		return "", fmt.Errorf("ошибка генерации лицензии: %w", err)
+	}
 
 	fmt.Println("\n" + strings.Repeat("=", 60) + "\n")
 
 	// Сценарий 2: Валидация лицензии (для клиентских приложений)
 	fmt.Println("2. Сценарий валидации лицензии:")
 	validateLicenseExample(licenseToken)
+
+	return licenseToken, nil
 }
 
-// демонстрирует процесс генерации лицензии
-func generateLicenseExample() string {
+// generateLicenseExample демонстрирует процесс генерации лицензии
+// Возвращает сгенерированный токен лицензии и ошибку, если таковая возникла
+func generateLicenseExample() (string, error) {
 	fmt.Println("\n--- Генерация лицензии (для сервера лицензий) ---")
 
 	// Генерация хэша машины
 	hash, err := hosthash.GenHash()
 	if err != nil {
-		log.Fatalf("Ошибка генерации хэша машины: %v", err)
+		return "", fmt.Errorf("ошибка генерации хэша машины: %w", err)
 	}
 	fmt.Printf("✓ Хэш машины сгенерирован (%d символов)\n", len(hash))
 
@@ -100,7 +115,7 @@ func generateLicenseExample() string {
 	// Шифрование хэша машины
 	encryptedHash, err := license.EncryptHash(hash, hashKey)
 	if err != nil {
-		log.Fatalf("Ошибка шифрования хэша машины: %v", err)
+		return "", fmt.Errorf("ошибка шифрования хэша машины: %w", err)
 	}
 	fmt.Println("✓ Хэш машины зашифрован")
 
@@ -117,7 +132,7 @@ func generateLicenseExample() string {
 		Scopes:       scopes,
 	})
 	if err != nil {
-		log.Fatalf("Ошибка создания лицензии: %v", err)
+		return "", fmt.Errorf("ошибка создания лицензии: %w", err)
 	}
 
 	fmt.Printf("✓ Лицензия создана (%d символов)\n", len(licenseToken))
@@ -125,7 +140,7 @@ func generateLicenseExample() string {
 	fmt.Printf("  Действительна до: %s\n", expTime.Format("02.01.2006"))
 	fmt.Printf("  Разрешения: %s\n", strings.Join(scopes, ", "))
 
-	return licenseToken
+	return licenseToken, nil
 }
 
 // validateLicenseExample демонстрирует процесс валидации лицензии
