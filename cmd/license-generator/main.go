@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -17,6 +18,13 @@ import (
 // Или как основа для более сложной системы лицензирования
 
 func main() {
+	_, err := RunGenerateLicenseExample()
+	if err != nil {
+		log.Fatalf("Ошибка выполнения примера: %v", err)
+	}
+}
+
+func RunGenerateLicenseExample() (string, error) {
 	fmt.Println("=== Сервер генерации лицензий ===")
 	fmt.Println("Основное назначение: внедрение в проекты для защиты ПО")
 	fmt.Println("Дополнительно: может использоваться как простой сервер лицензий")
@@ -24,15 +32,15 @@ func main() {
 
 	// Проверка режима работы
 	if len(os.Args) > 1 && os.Args[1] != "--interactive" {
-		generateWithArgs()
+		return generateWithArgs()
 	} else {
-		generateInteractive()
+		return generateInteractive()
 	}
 }
 
 // generateWithArgs генерирует лицензию с использованием аргументов командной строки
 // Используется для автоматизации процесса генерации лицензий
-func generateWithArgs() {
+func generateWithArgs() (string, error) {
 	if len(os.Args) < 6 {
 		fmt.Println("Использование для прямой генерации:")
 		fmt.Println("  go run cmd/license-generator/main.go <файл_приватного_ключа> <ключ_хэша> <название_лицензии> <дней_действия> <scope>")
@@ -49,7 +57,7 @@ func generateWithArgs() {
 		fmt.Println("  название_лицензии - произвольное название лицензии")
 		fmt.Println("  дней_действия - срок действия лицензии в днях")
 		fmt.Println("  scope - список разрешений через запятую (read,write,admin)")
-		return
+		return "", nil
 	}
 
 	privateKeyFile := os.Args[1]
@@ -58,7 +66,7 @@ func generateWithArgs() {
 	daysValid, err := strconv.Atoi(os.Args[4])
 	if err != nil {
 		fmt.Printf("Ошибка парсинга дней действия: %v\n", err)
-		return
+		return "", fmt.Errorf("ошибка парсинга дней действия: %w", err)
 	}
 	scopesStr := os.Args[5]
 	scopes := strings.Split(scopesStr, ",")
@@ -67,14 +75,14 @@ func generateWithArgs() {
 	privateKeyBytes, err := os.ReadFile(privateKeyFile)
 	if err != nil {
 		fmt.Printf("Ошибка чтения файла приватного ключа: %v\n", err)
-		return
+		return "", fmt.Errorf("ошибка чтения файла приватного ключа: %w", err)
 	}
 
 	// Генерация лицензии
 	licenseToken, err := generateLicense(privateKeyBytes, hashKey, licenseName, daysValid, scopes)
 	if err != nil {
 		fmt.Printf("Ошибка генерации лицензии: %v\n", err)
-		return
+		return "", fmt.Errorf("ошибка генерации лицензии: %w", err)
 	}
 
 	fmt.Println("\n=== Сгенерированная лицензия ===")
@@ -85,11 +93,13 @@ func generateWithArgs() {
 	fmt.Printf("✓ Название: %s\n", licenseName)
 	fmt.Printf("✓ Срок действия: %d дней\n", daysValid)
 	fmt.Printf("✓ Разрешения: %s\n", strings.Join(scopes, ", "))
+
+	return licenseToken, nil
 }
 
 // generateInteractive генерирует лицензию с использованием интерактивного диалога
 // Идеально подходит для ручной выдачи лицензий
-func generateInteractive() {
+func generateInteractive() (string, error) {
 	reader := bufio.NewReader(os.Stdin)
 
 	fmt.Println("Интерактивный генератор лицензий")
@@ -105,7 +115,7 @@ func generateInteractive() {
 	privateKeyBytes, err := os.ReadFile(privateKeyFile)
 	if err != nil {
 		fmt.Printf("Ошибка чтения файла приватного ключа: %v\n", err)
-		return
+		return "", fmt.Errorf("ошибка чтения файла приватного ключа: %w", err)
 	}
 
 	// Получение ключа хэша
@@ -125,7 +135,7 @@ func generateInteractive() {
 	daysValid, err := strconv.Atoi(daysStr)
 	if err != nil {
 		fmt.Printf("Ошибка парсинга дней: %v\n", err)
-		return
+		return "", fmt.Errorf("ошибка парсинга дней: %w", err)
 	}
 
 	// Получение scope
@@ -143,7 +153,7 @@ func generateInteractive() {
 	licenseToken, err := generateLicense(privateKeyBytes, hashKey, licenseName, daysValid, scopes)
 	if err != nil {
 		fmt.Printf("Ошибка генерации лицензии: %v\n", err)
-		return
+		return "", fmt.Errorf("ошибка генерации лицензии: %w", err)
 	}
 
 	fmt.Println("\n=== Сгенерированная лицензия ===")
@@ -169,12 +179,14 @@ func generateInteractive() {
 		err := os.WriteFile(filename, []byte(licenseToken), 0644)
 		if err != nil {
 			fmt.Printf("Ошибка сохранения лицензии в файл: %v\n", err)
+			return "", fmt.Errorf("ошибка сохранения лицензии в файл: %w", err)
 		} else {
 			fmt.Printf("✓ Лицензия сохранена в файл: %s\n", filename)
 		}
 	}
 
 	fmt.Println("\n=== Генерация завершена ===")
+	return licenseToken, nil
 }
 
 // generateLicense создает токен лицензии с использованием предоставленных параметров
