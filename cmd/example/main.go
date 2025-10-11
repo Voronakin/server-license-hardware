@@ -98,7 +98,7 @@ func generateLicenseExample() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("ошибка генерации хэша машины: %w", err)
 	}
-	fmt.Printf("✓ Хэш машины сгенерирован (%d символов)\n", len(hash))
+	fmt.Printf("✓ Хэш машины сгенерирован (%d символов)\n", len([]rune(hash)))
 
 	// Определение scope для конкретного приложения
 	allScopes := []license.Scope{
@@ -135,7 +135,7 @@ func generateLicenseExample() (string, error) {
 		return "", fmt.Errorf("ошибка создания лицензии: %w", err)
 	}
 
-	fmt.Printf("✓ Лицензия создана (%d символов)\n", len(licenseToken))
+	fmt.Printf("✓ Лицензия создана (%d символов)\n", len([]rune(licenseToken)))
 	fmt.Printf("  Название: %s\n", name)
 	fmt.Printf("  Действительна до: %s\n", expTime.Format("02.01.2006"))
 	fmt.Printf("  Разрешения: %s\n", strings.Join(scopes, ", "))

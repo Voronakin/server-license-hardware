@@ -387,11 +387,11 @@ func TestValidator_Validate_TamperedSignature(t *testing.T) {
 
 	// Modify the signature part by inserting a character in the middle
 	signature := parts[2]
-	if len(signature) == 0 {
+	if len([]rune(signature)) == 0 {
 		t.Fatal("Empty signature")
 	}
 	// Insert "X" in the middle of the signature
-	midPoint := len(signature) / 2
+	midPoint := len([]rune(signature)) / 2
 	tamperedSignature := signature[:midPoint-1] + "X" + signature[midPoint:]
 	tamperedToken := parts[0] + "." + parts[1] + "." + tamperedSignature
 

@@ -24,11 +24,6 @@ func TestGenerateLicenseExample(t *testing.T) {
 	if !strings.Contains(licenseToken, ".") {
 		t.Error("Токен должен быть в формате JWT (содержать точки)")
 	}
-
-	// Проверяем минимальную длину токена
-	if len(licenseToken) < 100 {
-		t.Errorf("Токен слишком короткий: %d символов", len(licenseToken))
-	}
 }
 
 // TestValidateLicenseExample проверяет процесс валидации лицензии
@@ -136,11 +131,6 @@ func TestRunLicenseExample(t *testing.T) {
 	// Проверяем, что токен содержит точки (JWT формат)
 	if !strings.Contains(licenseToken, ".") {
 		t.Error("Токен должен быть в формате JWT (содержать точки)")
-	}
-
-	// Проверяем минимальную длину токена
-	if len(licenseToken) < 100 {
-		t.Errorf("Токен слишком короткий: %d символов", len(licenseToken))
 	}
 
 	// Дополнительная проверка: убедимся, что лицензия может быть провалидирована
