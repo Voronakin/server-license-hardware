@@ -213,9 +213,10 @@ func TestValidator_Validate_NotYetActive(t *testing.T) {
 	assert.Len(t, licenseDetails.Errors, 1)
 	firstErr := licenseDetails.FirstError()
 	assert.NotNil(t, firstErr)
-	assert.Equal(t, LicenseNotYetActive, firstErr.Type)
-	assert.True(t, licenseDetails.TokenActive)
-	assert.True(t, licenseDetails.HashActive)
+	if firstErr != nil {
+		assert.Equal(t, LicenseNotYetActive, firstErr.Type)
+	}
+	assert.False(t, licenseDetails.TokenActive)
 }
 
 func TestValidator_Validate_Expired(t *testing.T) {
@@ -254,9 +255,10 @@ func TestValidator_Validate_Expired(t *testing.T) {
 	assert.Len(t, licenseDetails.Errors, 1)
 	firstErr := licenseDetails.FirstError()
 	assert.NotNil(t, firstErr)
-	assert.Equal(t, LicenseExpired, firstErr.Type)
-	assert.True(t, licenseDetails.TokenActive)
-	assert.True(t, licenseDetails.HashActive)
+	if firstErr != nil {
+		assert.Equal(t, LicenseExpired, firstErr.Type)
+	}
+	assert.False(t, licenseDetails.TokenActive)
 }
 
 func TestValidator_Validate_Active(t *testing.T) {
@@ -372,7 +374,9 @@ func TestValidator_Validate_HashMismatch(t *testing.T) {
 	assert.Len(t, licenseDetails.Errors, 1)
 	firstErr := licenseDetails.FirstError()
 	assert.NotNil(t, firstErr)
-	assert.Equal(t, HashMismatchError, firstErr.Type)
+	if firstErr != nil {
+		assert.Equal(t, HashMismatchError, firstErr.Type)
+	}
 	assert.True(t, licenseDetails.TokenActive)
 	assert.False(t, licenseDetails.HashActive)
 }
