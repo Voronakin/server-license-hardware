@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"server-license-hardware/pkg/hosthash"
-	"server-license-hardware/pkg/license"
+	"github.com/Voronakin/server-license-hardware/pkg/hosthash"
+	"github.com/Voronakin/server-license-hardware/pkg/license"
 )
 
 // TestRunGenerateHashExample проверяет процесс генерации и шифрования хэша

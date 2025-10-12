@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"server-license-hardware/pkg/hosthash"
-	"server-license-hardware/pkg/license"
+	"github.com/Voronakin/server-license-hardware/pkg/hosthash"
+	"github.com/Voronakin/server-license-hardware/pkg/license"
 )
 
 // ПРИМЕР публичного ключа для проверки подписи JWT

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"server-license-hardware/pkg/hosthash"
-	"server-license-hardware/pkg/license"
+	"github.com/Voronakin/server-license-hardware/pkg/hosthash"
+	"github.com/Voronakin/server-license-hardware/pkg/license"
 )
 
 // Ключ шифрования хэша - должен быть зашит в коде приложения

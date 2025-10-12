@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"server-license-hardware/pkg/hosthash"
+	"github.com/Voronakin/server-license-hardware/pkg/hosthash"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"

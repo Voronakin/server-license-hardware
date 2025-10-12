@@ -2,9 +2,9 @@ package license
 
 import (
 	"fmt"
+	"github.com/Voronakin/server-license-hardware/pkg/crypt"
+	"github.com/Voronakin/server-license-hardware/pkg/hosthash"
 	"os"
-	"server-license-hardware/pkg/crypt"
-	"server-license-hardware/pkg/hosthash"
 	"time"
 )
 

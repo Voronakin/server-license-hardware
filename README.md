@@ -29,8 +29,8 @@ JWT токены подписываются с использованием ас
 
 ```go
 import (
-    "voronakin/server-license-hardware/hosthash"
-    "voronakin/server-license-hardware/license"
+    "github.com/Voronakin/server-license-hardware/hosthash"
+    "github.com/Voronakin/server-license-hardware/license"
 )
 
 // В реальном проекте эти ключи должны быть зашиты в приложение
@@ -89,7 +89,7 @@ if licenseInfo.CheckScope("read") {
 ## Установка
 
 ```bash
-go get github.com/voronakin/server-license-hardware
+go get github.com/Voronakin/server-license-hardware
 ```
 
 ## Примеры

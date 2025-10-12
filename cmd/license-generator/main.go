@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"server-license-hardware/pkg/hosthash"
-	"server-license-hardware/pkg/license"
+	"github.com/Voronakin/server-license-hardware/pkg/hosthash"
+	"github.com/Voronakin/server-license-hardware/pkg/license"
 )
 
 // Основное назначение: простой сервер генерации лицензий

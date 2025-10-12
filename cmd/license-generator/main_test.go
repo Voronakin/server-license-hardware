@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"server-license-hardware/pkg/license"
+	"github.com/Voronakin/server-license-hardware/pkg/license"
 )
 
 // TestGenerateLicense проверяет базовую генерацию лицензии

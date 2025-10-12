@@ -1,4 +1,4 @@
-module server-license-hardware
+module github.com/Voronakin/server-license-hardware
 
 go 1.24.0
 
