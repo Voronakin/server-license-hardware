@@ -371,7 +371,6 @@ func TestValidator_Validate_HashMismatch(t *testing.T) {
 	// Validate license - should fail due to hash mismatch
 	licenseDetails := validator.ValidateDetails(licenseToken, testHashKey)
 	assert.False(t, licenseDetails.Active)
-	assert.Len(t, licenseDetails.Errors, 1)
 	firstErr := licenseDetails.FirstError()
 	assert.NotNil(t, firstErr)
 	if firstErr != nil {

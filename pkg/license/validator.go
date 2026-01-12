@@ -24,95 +24,44 @@ func (v *Validator) Validate(tokenString, hashKey string) bool {
 	return v.ValidateDetails(tokenString, hashKey).Active
 }
 
-func (v *Validator) ValidateDetails(tokenString, hashKey string) *LicenseDetails {
-	licenseDetails := &LicenseDetails{
-		TokenValue: tokenString,
+func (lic *LicenseDetails) validateBaseClimes(claims jwt.MapClaims, v *Validator, hashKey string) *LicenseDetails {
+	if claims == nil {
+		lic.Errors = append(lic.Errors, NewClaimGetError("no claims"))
+		return lic
 	}
 
-	token, claims, err := v.parseToken(tokenString)
-	if err != nil {
-		if errors.Is(err, jwt.ErrTokenExpired) {
-			licenseDetails.Errors = append(licenseDetails.Errors, NewLicenseExpired())
-			return licenseDetails
-		}
-
-		if errors.Is(err, jwt.ErrTokenNotValidYet) {
-			licenseDetails.Errors = append(licenseDetails.Errors, NewLicenseNotYetActive())
-			return licenseDetails
-		}
-
-		licenseDetails.Errors = append(licenseDetails.Errors, NewValidationError(
-			TokenParseError,
-			fmt.Sprintf("failed to parse JWT token: %s", err.Error()),
-		))
-		return licenseDetails
-	}
-
-	licenseDetails.TokenActive = token.Valid
-
-	// Получение subject из токена
-	sub, err := token.Claims.GetSubject()
-	if err != nil {
-		licenseDetails.Errors = append(licenseDetails.Errors, NewClaimGetError("subject"))
-		return licenseDetails
-	}
-
-	// Декодирование хэша машины из токена
-	decryptedHash, err := DecryptHash(sub, hashKey)
-	if err != nil {
-		licenseDetails.Errors = append(licenseDetails.Errors, NewValidationError(
-			HashDecryptError,
-			fmt.Sprintf("failed to decrypt machine hash: %s", err.Error()),
-		))
-		return licenseDetails
-	}
-	licenseDetails.HostHashValue = decryptedHash
-
-	// Генерация текущего хэша машины
-	currentHash, err := hosthash.GenHash()
-	if err != nil {
-		licenseDetails.Errors = append(licenseDetails.Errors, NewValidationError(
-			HashGenerateError,
-			fmt.Sprintf("failed to generate current machine hash: %s", err.Error()),
-		))
-		return licenseDetails
-	}
-	licenseDetails.CurrentHash = currentHash
-
-	// Проверка соответствия хэшей
-	hashValid := decryptedHash == currentHash
-	licenseDetails.HashActive = hashValid
-	if !hashValid {
-		licenseDetails.Errors = append(licenseDetails.Errors, NewHashMismatchError())
-	}
+	claimFail := false
 
 	// Получение времени истечения
-	exp, err := token.Claims.GetExpirationTime()
+	exp, err := claims.GetExpirationTime()
 	if err != nil {
-		licenseDetails.Errors = append(licenseDetails.Errors, NewClaimGetError("expiration time"))
+		claimFail = true
+		lic.Errors = append(lic.Errors, NewClaimGetError("expiration time"))
 	} else if exp != nil {
-		licenseDetails.ExpiresAt = exp.Time
+		lic.ExpiresAt = exp.Time
 	}
 
 	// Получение времени выдачи
-	iat, err := token.Claims.GetIssuedAt()
+	iat, err := claims.GetIssuedAt()
 	if err != nil {
-		licenseDetails.Errors = append(licenseDetails.Errors, NewClaimGetError("issued at time"))
+		claimFail = true
+		lic.Errors = append(lic.Errors, NewClaimGetError("issued at time"))
 	} else if iat != nil {
-		licenseDetails.IssuedAt = iat.Time
+		lic.IssuedAt = iat.Time
 	}
 
 	// Получение времени начала действия
-	nbf, err := token.Claims.GetNotBefore()
+	nbf, err := claims.GetNotBefore()
 	if err != nil {
-		licenseDetails.Errors = append(licenseDetails.Errors, NewClaimGetError("not before time"))
+		claimFail = true
+		lic.Errors = append(lic.Errors, NewClaimGetError("not before time"))
 	} else if nbf != nil {
-		licenseDetails.NotBefore = nbf.Time
+		lic.NotBefore = nbf.Time
 	}
 
 	// Получение названия лицензии
 	if name, ok := claims["name"].(string); ok {
-		licenseDetails.Name = name
+		lic.Name = name
 	}
 
 	// Получение scope из claims
@@ -126,8 +75,87 @@ func (v *Validator) ValidateDetails(tokenString, hashKey string) *LicenseDetails
 	}
 
 	if len(scopeIds) > 0 {
-		licenseDetails.Scopes = v.getScopesByIds(scopeIds)
+		lic.Scopes = v.getScopesByIds(scopeIds)
 	}
+
+	if claimFail {
+		lic.TokenActive = false
+	}
+
+	return lic.validateHash(claims, hashKey)
+}
+
+func (lic *LicenseDetails) validateHash(claims jwt.MapClaims, hashKey string) *LicenseDetails {
+	if claims == nil {
+		return lic
+	}
+
+	// Получение subject из токена
+	sub, err := claims.GetSubject()
+	if err != nil {
+		lic.Errors = append(lic.Errors, NewClaimGetError("subject"))
+		return lic
+	}
+
+	// Декодирование хэша машины из токена
+	decryptedHash, err := DecryptHash(sub, hashKey)
+	if err != nil {
+		lic.Errors = append(lic.Errors, NewValidationError(
+			HashDecryptError,
+			fmt.Sprintf("failed to decrypt machine hash: %s", err.Error()),
+		))
+		return lic
+	}
+	lic.HostHashValue = decryptedHash
+
+	// Генерация текущего хэша машины
+	currentHash, err := hosthash.GenHash()
+	if err != nil {
+		lic.Errors = append(lic.Errors, NewValidationError(
+			HashGenerateError,
+			fmt.Sprintf("failed to generate current machine hash: %s", err.Error()),
+		))
+		return lic
+	}
+	lic.CurrentHash = currentHash
+
+	// Проверка соответствия хэшей
+	hashValid := decryptedHash == currentHash
+	lic.HashActive = hashValid
+	if !hashValid {
+		lic.Errors = append(lic.Errors, NewHashMismatchError())
+	}
+
+	return lic
+}
+
+func (v *Validator) ValidateDetails(tokenString, hashKey string) *LicenseDetails {
+	licenseDetails := &LicenseDetails{
+		TokenValue: tokenString,
+	}
+
+	token, claims, err := v.parseToken(tokenString)
+	if err != nil {
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			licenseDetails.Errors = append(licenseDetails.Errors, NewLicenseExpired())
+			return licenseDetails.validateBaseClimes(claims, v, hashKey)
+		}
+
+		if errors.Is(err, jwt.ErrTokenNotValidYet) {
+			licenseDetails.Errors = append(licenseDetails.Errors, NewLicenseNotYetActive())
+			return licenseDetails.validateBaseClimes(claims, v, hashKey)
+		}
+
+		licenseDetails.Errors = append(licenseDetails.Errors, NewValidationError(
+			TokenParseError,
+			fmt.Sprintf("failed to parse JWT token: %s", err.Error()),
+		))
+		return licenseDetails.validateBaseClimes(claims, v, hashKey)
+	}
+
+	licenseDetails.TokenActive = token.Valid
+
+	licenseDetails = licenseDetails.validateBaseClimes(claims, v, hashKey)
 
 	// Определение общего статуса активности
 	licenseDetails.Active = licenseDetails.TokenActive && licenseDetails.HashActive && len(licenseDetails.Errors) == 0
