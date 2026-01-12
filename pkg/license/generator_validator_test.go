@@ -581,3 +581,63 @@ func TestValidator_Validate_WrongPublicKey(t *testing.T) {
 	}
 	assert.True(t, foundTokenParseError, "Should have TokenParseError in errors list")
 }
+
+func TestValidator_ValidateDetails_ExpiredButReturnsData(t *testing.T) {
+	privateKeyBytes, err := os.ReadFile("../../testdata/test_private_key.pem")
+	if err != nil {
+		t.Fatalf("Ошибка чтения тестового приватного ключа: %v", err)
+	}
+	generator := NewGenerator(privateKeyBytes, testScopes)
+	publicKeyBytes, err := os.ReadFile("../../testdata/test_public_key.pub")
+	if err != nil {
+		t.Fatalf("Ошибка чтения тестового публичного ключа: %v", err)
+	}
+	validator := NewValidator(publicKeyBytes, testScopes)
+
+	// Use real machine hash for testing
+	realHash, err := hosthash.GenHash()
+	require.NoError(t, err)
+	encryptedHash, err := EncryptHash(realHash, testHashKey)
+	require.NoError(t, err)
+
+	// Create license that has already expired
+	opts := CreateOptions{
+		HardwareHash: encryptedHash,
+		Name:         "Expired License With Data",
+		ExpiresAt:    time.Now().AddDate(-1, 0, 0), // Expired 1 year ago
+		NotBefore:    time.Now().AddDate(-2, 0, 0), // Was active 2 years ago
+		Scopes:       []string{"read", "write"},
+	}
+
+	licenseToken, err := generator.Create(opts)
+	require.NoError(t, err)
+
+	// Validate expired license - should return data despite expiration
+	licenseDetails := validator.ValidateDetails(licenseToken, testHashKey)
+
+	// License should not be active
+	assert.False(t, licenseDetails.Active)
+	assert.False(t, licenseDetails.TokenActive)
+
+	// Should have license expired error
+	assert.Len(t, licenseDetails.Errors, 1)
+	firstErr := licenseDetails.FirstError()
+	assert.NotNil(t, firstErr)
+	if firstErr != nil {
+		assert.Equal(t, LicenseExpired, firstErr.Type)
+	}
+
+	// But should still have license data
+	assert.Equal(t, "Expired License With Data", licenseDetails.Name)
+	assert.Len(t, licenseDetails.Scopes, 2)
+	assert.Equal(t, "read", licenseDetails.Scopes[0].ID)
+	assert.Equal(t, "write", licenseDetails.Scopes[1].ID)
+	assert.False(t, licenseDetails.ExpiresAt.IsZero()) // Should be set
+	assert.False(t, licenseDetails.IssuedAt.IsZero())  // Should be set
+	assert.False(t, licenseDetails.NotBefore.IsZero()) // Should be set
+
+	// Hash should still be validated
+	assert.True(t, licenseDetails.HashActive) // Because we used real hash
+	assert.NotEmpty(t, licenseDetails.HostHashValue)
+	assert.NotEmpty(t, licenseDetails.CurrentHash)
+}
